@@ -1,0 +1,119 @@
+{
+  "id": "beach-freedom-2025",
+  "title": "Sam AI Story - Freedom on the Beach",
+  "description": "Sarah's story about discovering AI assistant Sam and finding freedom",
+  "type": "commercial",
+  "character": "a young creative woman in her late 20s with long dark hair, wearing casual beach attire, warm friendly expression",
+  "createdAt": 1704067200000,
+  "updatedAt": 1704067200000,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "title": "Opening - Walking Free",
+      "duration": 12,
+      "prompt": "Young woman walking confidently on beach at 10 AM, casual excited energy, talking to camera while walking, ocean and palm trees background, sunny morning light, feeling of freedom and joy",
+      "cameraAngle": "Medium shot tracking with her",
+      "voiceover": "Me, walking on the beach at 10 AM on a Wednesday... but here's the crazy part—I'm FREE. Like, actually free. My work? Done. And I'm not rushing, I'm not stressed... I'm just here.",
+      "generated": false
+    },
+    {
+      "id": "scene-2",
+      "title": "How It Started",
+      "duration": 8,
+      "prompt": "Young woman on beach transitioning to storytelling mode, thoughtful expression, hand gestures beginning, beach background, natural lighting, settling into narrative",
+      "cameraAngle": "Medium shot",
+      "voiceover": "Let me tell you about Sam. A few weeks ago, my friend Maya told me about this thing that would blow my mind.",
+      "generated": false
+    },
+    {
+      "id": "scene-3",
+      "title": "The Email from Sam",
+      "duration": 8,
+      "prompt": "Young woman standing on beach looking surprised and intrigued, reading invisible phone/email, eyebrows raised, curious expression, ocean background, bright daylight",
+      "cameraAngle": "Medium close-up",
+      "voiceover": "Then I get this email from Sam: 'Hey Sarah, I'm here to free you from the daily grind. How do you want to connect?'",
+      "generated": false
+    },
+    {
+      "id": "scene-4",
+      "title": "Who Is This?",
+      "duration": 8,
+      "prompt": "Young woman on beach looking confused and skeptical, hand on hip, questioning expression, talking to camera with slight disbelief, sunny beach setting",
+      "cameraAngle": "Medium shot",
+      "voiceover": "And I'm like... what? Who is this? So I'm like, 'Let's talk,' and Sam CALLS me. Like, actually calls me on Discord.",
+      "generated": false
+    },
+    {
+      "id": "scene-5",
+      "title": "The Client Report Situation",
+      "duration": 8,
+      "prompt": "Young woman talking animatedly to camera, voice gets more animated, expressive gestures showing frustration then curiosity, beach setting, warm sunlight",
+      "cameraAngle": "Close-up on face and gestures",
+      "voiceover": "Sam asks what I'm doing. I tell him about this boring client report I need to finish. Sam says, 'Can I try?'",
+      "generated": false
+    },
+    {
+      "id": "scene-6",
+      "title": "Taking the Risk",
+      "duration": 8,
+      "prompt": "Young woman on beach with uncertain but desperate expression, shrugging shoulders, slightly skeptical but willing to try, beach background, natural lighting",
+      "cameraAngle": "Medium shot",
+      "voiceover": "It's sketchy, but I'm desperate. I give Sam five minutes. He asks three quick questions about the report.",
+      "generated": false
+    },
+    {
+      "id": "scene-7",
+      "title": "Sam Delivers",
+      "duration": 8,
+      "prompt": "Young woman sitting on beach sand looking amazed and relieved, hands covering mouth in surprise, eyes wide with realization, ocean in background, bright daylight, moment of discovery",
+      "cameraAngle": "Medium shot from front",
+      "voiceover": "Two minutes later? Done. And it was GOOD. Really good. Better than I would've done it.",
+      "generated": false
+    },
+    {
+      "id": "scene-8",
+      "title": "Coffee Break",
+      "duration": 8,
+      "prompt": "Young woman on beach smiling and laughing, relaxed posture, gesturing with invisible coffee cup, expressing joy and amazement, bright beach atmosphere, carefree energy",
+      "cameraAngle": "Medium shot",
+      "voiceover": "I make myself a coffee. While sipping it, I ask Sam to send it to Marcus. 'Sure. Enjoy your coffee.'",
+      "generated": false
+    },
+    {
+      "id": "scene-9",
+      "title": "Marcus Responds",
+      "duration": 8,
+      "prompt": "Young woman on beach with growing excitement, animated hand gestures, eyes lighting up, talking faster with increasing energy, sunny beach setting",
+      "cameraAngle": "Medium close-up",
+      "voiceover": "Five minutes later, Sam asks if I want him to add budget numbers and generate three style frames. I'm amazed.",
+      "generated": false
+    },
+    {
+      "id": "scene-10",
+      "title": "Style Frames Delivered",
+      "duration": 8,
+      "prompt": "Young woman on beach laughing with genuine amazement, hands gesturing wildly, big smile, expressing disbelief and joy, golden hour lighting, pure excitement",
+      "cameraAngle": "Medium shot",
+      "voiceover": "'Let me show you real quick...' And Sam just... DID it. Sent it. Marcus loved it. All before I even finished my coffee.",
+      "generated": false
+    },
+    {
+      "id": "scene-11",
+      "title": "Three Weeks Later",
+      "duration": 8,
+      "prompt": "Young woman walking along water's edge, peaceful and content, waves at feet, reflective expression, sunset lighting, feeling of accomplishment and freedom",
+      "cameraAngle": "Wide tracking shot",
+      "voiceover": "That was three weeks ago. Now Sam handles my emails, organizes files, reminds me about deadlines, even researches while I sleep. Like a creative partner who gets me.",
+      "generated": false
+    },
+    {
+      "id": "scene-12",
+      "title": "Closing - Pure Freedom",
+      "duration": 12,
+      "prompt": "Young woman standing facing sunset, arms slightly outstretched, big genuine smile, feeling of liberation and joy, golden light, ocean background, confident peaceful energy",
+      "cameraAngle": "Wide cinematic shot",
+      "voiceover": "And that's why I'm here. On a beach. At 10 AM. On a Wednesday. Because I'm not just productive anymore—I'm free. This is what AI should feel like.",
+      "generated": false
+    }
+  ]
+}

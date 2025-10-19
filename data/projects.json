@@ -1,0 +1,12 @@
+{
+  "projects": [
+    {
+      "id": "beach-freedom-2025",
+      "file": "beach-freedom.json"
+    },
+    {
+      "id": "cat-dry-food-2025",
+      "file": "cat-dry-food.json"
+    }
+  ]
+}

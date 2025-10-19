@@ -1,0 +1,119 @@
+{
+  "id": "cat-dry-food-2025",
+  "title": "The Dry Food Diaries",
+  "description": "A cat's brutally honest stand-up routine about the indignity of dry food",
+  "type": "short",
+  "character": "Mr. Whiskers - an orange tabby cat with attitude",
+  "createdAt": 1704067200000,
+  "updatedAt": 1704067200000,
+  "scenes": [
+    {
+      "id": "scene-1",
+      "title": "Opening - The Bowl",
+      "duration": 10,
+      "prompt": "Orange tabby cat sitting next to a bowl of dry kibble on kitchen floor, looking directly at camera with annoyed expression, morning light through window, realistic cat, medium shot",
+      "cameraAngle": "Eye-level medium shot, slight Dutch angle",
+      "voiceover": "So I wake up this morning, and what do I see? The bowl. Again. You know what's in it? The same garbage that was there yesterday. And the day before. And every single day for the last three years.",
+      "generated": false
+    },
+    {
+      "id": "scene-2",
+      "title": "The Comparison",
+      "duration": 8,
+      "prompt": "Orange tabby cat looking at dry food bowl, then looking up with exasperated expression, kitchen setting, natural lighting, realistic cat portrayal",
+      "cameraAngle": "Close-up on cat's face",
+      "voiceover": "They eat eggs Benedict. Avocado toast. I get pellets. PELLETS. You know what pellets are? That's prison food. I'm doing time for a crime I didn't commit.",
+      "generated": false
+    },
+    {
+      "id": "scene-3",
+      "title": "The Sound",
+      "duration": 8,
+      "prompt": "Orange tabby cat eating from bowl with exaggerated reluctance, crunching sounds implied, kitchen floor, side view showing cat's body language",
+      "cameraAngle": "Side angle medium shot",
+      "voiceover": "And the sound. Oh god, the sound. CRUNCH. CRUNCH. CRUNCH. It's like eating gravel. Tasty, tasty gravel with a hint of... sadness.",
+      "generated": false
+    },
+    {
+      "id": "scene-4",
+      "title": "The Ingredients",
+      "duration": 8,
+      "prompt": "Orange tabby cat looking at camera with deadpan expression, sitting on kitchen counter, bag of cat food visible in background, indoor lighting",
+      "cameraAngle": "Medium close-up",
+      "voiceover": "I read the ingredients once. First ingredient? Chicken by-product meal. BY-PRODUCT. That's not even the chicken. That's what's LEFT after they use the chicken for actual chicken.",
+      "generated": false
+    },
+    {
+      "id": "scene-5",
+      "title": "The Wet Food Memory",
+      "duration": 10,
+      "prompt": "Orange tabby cat with dreamy, nostalgic expression looking up and to the side, soft lighting, close-up on face showing emotional depth, realistic cat features",
+      "cameraAngle": "Close-up, slightly low angle",
+      "voiceover": "I remember wet food. That was back in the good times. That glorious, gelatinous, questionable meat substance. It was disgusting. It was perfect. I miss it every single day.",
+      "generated": false
+    },
+    {
+      "id": "scene-6",
+      "title": "The Conspiracy",
+      "duration": 8,
+      "prompt": "Orange tabby cat looking suspicious and paranoid, glancing around nervously, kitchen setting, dramatic lighting suggesting conspiracy thinking",
+      "cameraAngle": "Medium shot with slight zoom",
+      "voiceover": "You know what I think? I think they KNOW. They know I'd complain if I could talk. So they keep me on the hard stuff to keep me quiet. It's a conspiracy, man.",
+      "generated": false
+    },
+    {
+      "id": "scene-7",
+      "title": "The Midnight Protest",
+      "duration": 8,
+      "prompt": "Orange tabby cat knocking dry food pieces out of bowl onto floor with paw, rebellious attitude, nighttime kitchen, subtle moonlight through window",
+      "cameraAngle": "High angle looking down at bowl",
+      "voiceover": "So sometimes, at 3 AM, I knock it on the floor. Not because I'm clumsy. It's a protest. Civil disobedience. Martin Luther King would be proud.",
+      "generated": false
+    },
+    {
+      "id": "scene-8",
+      "title": "The Table Scraps",
+      "duration": 10,
+      "prompt": "Orange tabby cat staring intensely at dinner table from floor, eyes wide with longing, family eating in soft background blur, warm evening lighting",
+      "cameraAngle": "Low angle from cat's perspective",
+      "voiceover": "And don't even get me started on table scraps. They're RIGHT THERE. I can see them. I can smell them. But can I have any? No. Because apparently, I have a 'sensitive stomach.' You know what's sensitive? My FEELINGS.",
+      "generated": false
+    },
+    {
+      "id": "scene-9",
+      "title": "The Vet's Opinion",
+      "duration": 8,
+      "prompt": "Orange tabby cat with skeptical, annoyed expression, sitting on examination table, clinical lighting, looking directly at camera with attitude",
+      "cameraAngle": "Medium shot, eye-level",
+      "voiceover": "The vet says it's 'nutritionally complete.' You know what else is nutritionally complete? Cardboard soaked in vitamins. Doesn't mean I want to eat it twice a day for the rest of my life.",
+      "generated": false
+    },
+    {
+      "id": "scene-10",
+      "title": "The Acceptance",
+      "duration": 8,
+      "prompt": "Orange tabby cat sitting calmly next to food bowl with resigned, philosophical expression, afternoon light, peaceful but slightly defeated posture",
+      "cameraAngle": "Wide shot showing full scene",
+      "voiceover": "But you know what the worst part is? I'm gonna eat it. I'm gonna eat every single piece. Because what else am I gonna do? Starve? I'm not a quitter. I'm just... deeply disappointed.",
+      "generated": false
+    },
+    {
+      "id": "scene-11",
+      "title": "The Philosophy",
+      "duration": 10,
+      "prompt": "Orange tabby cat in contemplative pose, sitting by window looking outside, sunset lighting, thoughtful and philosophical mood, realistic detailed fur",
+      "cameraAngle": "Side profile medium shot",
+      "voiceover": "You know, they say you are what you eat. Well, I'm hard, brown, and slightly depressing. That checks out. That is EXACTLY what I've become.",
+      "generated": false
+    },
+    {
+      "id": "scene-12",
+      "title": "Closing - The Truth",
+      "duration": 10,
+      "prompt": "Orange tabby cat looking directly at camera with knowing, slightly smug expression, cozy living room setting, warm lighting, comfortable atmosphere",
+      "cameraAngle": "Close-up, direct eye contact",
+      "voiceover": "But here's the thing... they think they're in charge. They think THEY decide what I eat. But watch this - at 2 AM tonight, I'm gonna yell until they stumble out of bed and give me treats. Who's really running this operation? That's right. The cat eating the prison pellets. Thank you, you've been a wonderful audience.",
+      "generated": false
+    }
+  ]
+}
