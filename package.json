@@ -1,8 +1,23 @@
 {
-  "name": "veo-studio",
-  "private": true,
-  "version": "0.0.0",
+  "name": "storyframe",
+  "version": "1.0.0",
+  "description": "AI-powered video storytelling platform for creating short-form video content with automatic scene generation, character consistency, and intelligent evaluation",
+  "author": "StoryFrame Contributors",
+  "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/storyframe"
+  },
+  "keywords": [
+    "ai",
+    "video-generation",
+    "storytelling",
+    "gemini",
+    "video-ai",
+    "short-form-video",
+    "content-creation"
+  ],
   "scripts": {
     "dev": "next dev -p 3039",
     "build": "next build",

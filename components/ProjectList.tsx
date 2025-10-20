@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Film, Video as VideoIcon, Package } from 'lucide-react';
+import { Film, Video as VideoIcon, Package, Sparkles, Clock, User } from 'lucide-react';
 import { Project } from '../types/project';
 
 const ProjectList: React.FC = () => {
@@ -64,47 +64,62 @@ const ProjectList: React.FC = () => {
 
   const getProjectTypeBadge = (type: string) => {
     const colors = {
-      movie: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      short: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      commercial: 'bg-green-500/20 text-green-400 border-green-500/30',
+      movie: 'bg-purple-100 text-purple-700',
+      short: 'bg-blue-100 text-blue-700',
+      commercial: 'bg-green-100 text-green-700',
     };
     return colors[type as keyof typeof colors] || colors.movie;
   };
 
   if (loading) {
     return (
-      <div className="h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-white">Loading projects...</div>
+      <div className="h-screen bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-black" />
+          <p className="text-gray-600 text-sm">Loading projects...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-gray-800">
-        <div className="px-6 py-4">
-          <h1 className="text-3xl font-bold text-white">Veo Studio</h1>
-          <p className="text-gray-400 mt-1">Select a project to get started</p>
+      <header className="border-b border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center w-10 h-10 bg-black rounded-lg">
+              <Sparkles className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">StoryFrame</h1>
+              <p className="text-sm text-gray-600">AI-powered video storytelling</p>
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Project Grid */}
-      <main className="container mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Your Projects</h2>
+          <p className="text-sm text-gray-600">Select a project to continue working on it</p>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
             <div
               key={project.id}
               onClick={() => router.push(`/projects/${project.id}`)}
-              className="bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-all group"
+              className="bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-300 hover:shadow-lg cursor-pointer transition-all group"
             >
               {/* Icon and Type Badge */}
               <div className="flex items-start justify-between mb-4">
-                <div className="p-3 bg-gray-800 rounded-lg text-gray-400 group-hover:text-white group-hover:bg-gray-700 transition-colors">
+                <div className="p-3 bg-gray-100 rounded-lg text-gray-700 group-hover:bg-black group-hover:text-white transition-all">
                   {getProjectIcon(project.type)}
                 </div>
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-medium border ${getProjectTypeBadge(
+                  className={`px-3 py-1 rounded-lg text-xs font-medium ${getProjectTypeBadge(
                     project.type
                   )}`}
                 >
@@ -113,20 +128,26 @@ const ProjectList: React.FC = () => {
               </div>
 
               {/* Title */}
-              <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-indigo-400 transition-colors">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-black transition-colors">
                 {project.title}
               </h3>
 
               {/* Description */}
-              <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+              <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                 {project.description}
               </p>
 
               {/* Stats */}
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span>{project.scenes.length} scenes</span>
+              <div className="flex items-center gap-4 text-xs text-gray-500">
+                <div className="flex items-center gap-1.5">
+                  <VideoIcon className="w-3.5 h-3.5" />
+                  <span>{project.scenes.length} scenes</span>
+                </div>
                 {project.character && (
-                  <span className="truncate">• {project.character}</span>
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5" />
+                    <span className="truncate">{project.character}</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -134,8 +155,12 @@ const ProjectList: React.FC = () => {
         </div>
 
         {projects.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-400">No projects found</p>
+          <div className="text-center py-16">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+              <Film className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-600 text-lg">No projects found</p>
+            <p className="text-gray-500 text-sm mt-1">Create your first project to get started</p>
           </div>
         )}
       </main>
