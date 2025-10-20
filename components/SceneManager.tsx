@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Loader2, Film, CheckCircle2, Settings, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon } from 'lucide-react';
+import { Play, Loader2, Film, CheckCircle2, Settings, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download } from 'lucide-react';
 import { generateVideo, GeneratedVideo } from '../services/videoService';
 import { GeneratedImage } from '../services/imageService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
@@ -12,6 +12,7 @@ import { evaluateVideo } from '../services/evaluationService';
 import { CostTracker } from './CostTracker';
 import { videoStorage } from '../services/videoStorage.server';
 import { evaluationStorage } from '../services/evaluationStorage.server';
+import { projectStorage } from '../services/projectStorage.server';
 import { Project, Scene, GenerationSettings } from '../types/project';
 
 interface SceneManagerProps {
@@ -30,6 +31,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
   const [openaiApiKey, setOpenaiApiKey] = useState<string>('');
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
   const [showRefsModal, setShowRefsModal] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
 
   // Default generation settings
   const [currentSettings, setCurrentSettings] = useState<GenerationSettings>({
@@ -133,62 +135,25 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     loadCharacterRefs();
   }, [projectId]);
 
-  // Load saved scene data from localStorage when project loads
-  useEffect(() => {
-    if (!projectId || !project) return;
+  // Note: Project data persistence removed from localStorage due to quota limits.
+  // Videos and evaluations are now stored server-side via API routes.
+  // Project metadata is loaded from /data/*.json files.
 
-    const savedData = localStorage.getItem(`veo_studio_project_${projectId}`);
-    if (savedData) {
+  // Auto-save project to server when it changes (debounced)
+  useEffect(() => {
+    if (!project) return;
+
+    const timeoutId = setTimeout(async () => {
       try {
-        const parsed = JSON.parse(savedData);
-        // Update project's scenes with saved data
-        setProject((prevProject) => {
-          if (!prevProject) return prevProject;
-
-          return {
-            ...prevProject,
-            scenes: prevProject.scenes.map((scene) => {
-              const savedScene = parsed.scenes.find((s: Scene) => s.id === scene.id);
-              if (savedScene) {
-                return {
-                  ...scene,
-                  generated: savedScene.generated || false,
-                  settings: savedScene.settings,
-                  evaluation: savedScene.evaluation,
-                };
-              }
-              return scene;
-            }),
-          };
-        });
+        await projectStorage.saveProject(project);
+        console.log('Project auto-saved:', project.id);
       } catch (error) {
-        console.error('Failed to load project data from localStorage:', error);
+        console.error('Failed to auto-save project:', error);
       }
-    }
-  }, [projectId]);
+    }, 1000); // Debounce: save 1 second after last change
 
-  // Save project to localStorage whenever it changes
-  useEffect(() => {
-    if (!projectId || !project) return;
-
-    // Create a serializable version without Blob and temporary URLs
-    const serializableProject = {
-      id: project.id,
-      scenes: project.scenes.map((scene) => ({
-        id: scene.id,
-        title: scene.title,
-        duration: scene.duration,
-        prompt: scene.prompt,
-        cameraAngle: scene.cameraAngle,
-        voiceover: scene.voiceover,
-        generated: scene.generated,
-        settings: scene.settings,
-        evaluation: scene.evaluation,
-      })),
-    };
-
-    localStorage.setItem(`veo_studio_project_${projectId}`, JSON.stringify(serializableProject));
-  }, [project, projectId]);
+    return () => clearTimeout(timeoutId);
+  }, [project]);
 
   // Load videos from server when project loads
   useEffect(() => {
@@ -418,6 +383,58 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     }
   };
 
+  const handleExportVideo = async () => {
+    if (!project) return;
+
+    // Get all scenes with generated videos
+    const scenesWithVideos = project.scenes.filter(s => s.generated && s.videoUrl);
+
+    if (scenesWithVideos.length === 0) {
+      setError('No generated videos to export');
+      return;
+    }
+
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          sceneIds: scenesWithVideos.map(s => s.id),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to export video');
+      }
+
+      // Get the blob from the response
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${project.id}-full.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      console.log('Video exported successfully');
+    } catch (err) {
+      console.error('Video export failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to export video');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleSaveOpenAIKey = (key: string) => {
     setOpenaiApiKey(key);
     localStorage.setItem('openai_api_key', key);
@@ -458,7 +475,27 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
             </div>
           </div>
         </div>
-        <CostTracker />
+        <div className="flex items-center gap-3">
+          {/* Export Video Button */}
+          <button
+            onClick={handleExportVideo}
+            disabled={isExporting || !project?.scenes.some(s => s.generated && s.videoUrl)}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {isExporting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Exporting...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Export Video</span>
+              </>
+            )}
+          </button>
+          <CostTracker />
+        </div>
       </div>
 
       {/* Main Content Area - 3 Columns */}
@@ -506,14 +543,14 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       </div>
 
       {/* Middle Column - Video Player (1/2) */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-950">
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-200">
         {selectedScene && (
           <>
             {/* Video Display Area */}
             <div className="flex-1 flex flex-col p-4 overflow-hidden min-h-0">
               {error && (
-                <div className="bg-red-900/20 border border-red-500 rounded-lg p-2 max-w-md mb-2 mx-auto">
-                  <p className="text-red-300 text-sm">{error}</p>
+                <div className="bg-red-50 border border-red-300 rounded-lg p-2 max-w-md mb-2 mx-auto">
+                  <p className="text-red-700 text-sm">{error}</p>
                 </div>
               )}
 
@@ -521,8 +558,8 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
                     <Loader2 className="w-16 h-16 text-indigo-500 animate-spin mx-auto mb-4" />
-                    <p className="text-white text-lg mb-2">Generating video...</p>
-                    <p className="text-gray-400 text-sm">
+                    <p className="text-gray-900 text-lg mb-2">Generating video...</p>
+                    <p className="text-gray-600 text-sm">
                       This may take a few minutes
                     </p>
                   </div>
@@ -541,9 +578,9 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                       Your browser does not support the video tag.
                     </video>
                   ) : (
-                    <div className="flex flex-col items-center justify-center bg-gray-800 rounded-lg p-12">
-                      <Film className="w-16 h-16 text-gray-500 mb-4" />
-                      <p className="text-gray-300 text-lg font-medium">No video generated</p>
+                    <div className="flex flex-col items-center justify-center bg-white border border-gray-200 rounded-lg p-12">
+                      <Film className="w-16 h-16 text-gray-400 mb-4" />
+                      <p className="text-gray-700 text-lg font-medium">No video generated</p>
                       <p className="text-gray-500 text-sm mt-2">Use the controls on the right to generate</p>
                     </div>
                   )}

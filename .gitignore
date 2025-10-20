@@ -36,3 +36,9 @@ out/
 public/videos/
 public/evaluations/
 public/generated-refs/
+
+# Runtime data directory (lowdb)
+data/
+
+# Temporary files
+temp/
