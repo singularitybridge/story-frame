@@ -3,24 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Play, Loader2, Film, CheckCircle2, Settings, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Play, Loader2, Film, CheckCircle2, Settings, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon } from 'lucide-react';
 import { generateVideo, GeneratedVideo } from '../services/videoService';
 import { GeneratedImage } from '../services/imageService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
 import { evaluateVideo } from '../services/evaluationService';
-import projectsIndex from '../data/projects.json';
 import { CostTracker } from './CostTracker';
-import { videoStorage } from '../services/videoStorage';
+import { videoStorage } from '../services/videoStorage.server';
 import { Project, Scene, GenerationSettings } from '../types/project';
 
 interface SceneManagerProps {
   projectId: string;
-  onNavigateToCharacterRefs: () => void;
 }
 
-const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToCharacterRefs }) => {
-  const navigate = useNavigate();
+const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
+  const router = useRouter();
   const [project, setProject] = useState<Project | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [generatingSceneIds, setGeneratingSceneIds] = useState<Set<string>>(new Set());
@@ -30,6 +28,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
   const [evaluatingSceneIds, setEvaluatingSceneIds] = useState<Set<string>>(new Set());
   const [openaiApiKey, setOpenaiApiKey] = useState<string>('');
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
+  const [showRefsModal, setShowRefsModal] = useState<boolean>(false);
 
   // Default generation settings
   const [currentSettings, setCurrentSettings] = useState<GenerationSettings>({
@@ -42,7 +41,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
   // Load OpenAI API key from environment or localStorage
   useEffect(() => {
     // First try environment variable, then localStorage
-    const envKey = import.meta.env.VITE_OPENAI_API_KEY;
+    const envKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     const savedKey = localStorage.getItem('openai_api_key');
 
     if (envKey) {
@@ -55,13 +54,23 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
   // Load the specific project from data files
   useEffect(() => {
     const loadProject = async () => {
-      const projectRef = projectsIndex.projects.find(p => p.id === projectId);
-      if (!projectRef) {
-        setError(`Project ${projectId} not found`);
-        return;
-      }
-
       try {
+        // Fetch projects index
+        const indexResponse = await fetch('/data/projects.json');
+        if (!indexResponse.ok) {
+          setError(`Failed to load projects index`);
+          return;
+        }
+
+        const projectsIndex = await indexResponse.json();
+        const projectRef = projectsIndex.projects.find((p: any) => p.id === projectId);
+
+        if (!projectRef) {
+          setError(`Project ${projectId} not found`);
+          return;
+        }
+
+        // Fetch the specific project data
         const response = await fetch(`/data/${projectRef.file}`);
         if (response.ok) {
           const projectData = await response.json();
@@ -180,7 +189,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
     localStorage.setItem(`veo_studio_project_${projectId}`, JSON.stringify(serializableProject));
   }, [project, projectId]);
 
-  // Load videos from IndexedDB when project loads
+  // Load videos from server when project loads
   useEffect(() => {
     if (!project) return;
 
@@ -194,12 +203,10 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
           return {
             ...prevProject,
             scenes: prevProject.scenes.map((scene) => {
-              const blob = videos.get(scene.id);
-              if (blob) {
-                const url = URL.createObjectURL(blob);
+              const url = videos.get(scene.id);
+              if (url) {
                 return {
                   ...scene,
-                  videoBlob: blob,
                   videoUrl: url,
                   generated: true,
                 };
@@ -209,7 +216,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
           };
         });
       } catch (error) {
-        console.error('Failed to load videos from IndexedDB:', error);
+        console.error('Failed to load videos from server:', error);
       }
     };
 
@@ -277,7 +284,17 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
         currentSettings
       );
 
-      // Update scene with video URL, blob, and save settings
+      // Save video to server for persistence and get the server URL
+      let serverUrl: string;
+      try {
+        serverUrl = await videoStorage.saveVideo(projectId, sceneId, video.blob);
+        console.log(`Saved video for scene ${sceneId} in project ${projectId} to server`);
+      } catch (saveErr) {
+        console.error('Failed to save video to server:', saveErr);
+        // Fall back to blob URL if server save fails
+        serverUrl = video.objectUrl;
+      }
+
       setProject((prevProject) => {
         if (!prevProject) return prevProject;
 
@@ -288,8 +305,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
               ? {
                   ...s,
                   generated: true,
-                  videoUrl: video.objectUrl,
-                  videoBlob: video.blob,
+                  videoUrl: serverUrl,
                   settings: currentSettings,
                   evaluation: undefined, // Clear previous evaluation
                 }
@@ -297,14 +313,6 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
           ),
         };
       });
-
-      // Save video to IndexedDB for persistence
-      try {
-        await videoStorage.saveVideo(projectId, sceneId, video.blob);
-        console.log(`Saved video for scene ${sceneId} in project ${projectId} to IndexedDB`);
-      } catch (saveErr) {
-        console.error('Failed to save video to IndexedDB:', saveErr);
-      }
     } catch (err) {
       console.error('Video generation failed:', err);
       setError(
@@ -322,15 +330,19 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
 
   const handleEvaluateScene = async (sceneId: string) => {
     const scene = scenes.find((s) => s.id === sceneId);
-    if (!scene || !scene.videoBlob) return;
+    if (!scene || !scene.videoUrl) return;
 
     // Add to evaluating set
     setEvaluatingSceneIds((prev) => new Set(prev).add(sceneId));
     setError(null);
 
     try {
+      // Fetch video blob from URL
+      const response = await fetch(scene.videoUrl);
+      const videoBlob = await response.blob();
+
       const evaluation = await evaluateVideo(
-        scene.videoBlob,
+        videoBlob,
         scene.duration,
         scene.prompt,
         scene.voiceover || '',
@@ -375,7 +387,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
         <div className="flex items-center gap-6">
           {/* Back to Projects Button */}
           <button
-            onClick={() => navigate('/')}
+            onClick={() => router.push('/')}
             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -385,23 +397,17 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
           {/* Project Title and Info */}
           <div className="flex items-center gap-4">
             <h1 className="text-lg font-semibold text-white">{project?.title}</h1>
-            <div className="text-sm text-gray-400">
+            <div className="flex items-center gap-3 text-sm text-gray-400">
               {project && (
                 <>
                   <span className="text-gray-500">{project.type}</span>
-                  {characterRefs.length > 0 ? (
+                  {characterRefs.length > 0 && (
                     <button
-                      onClick={onNavigateToCharacterRefs}
-                      className="ml-3 text-green-400 hover:text-green-300 underline text-xs"
+                      onClick={() => setShowRefsModal(true)}
+                      className="flex items-center gap-1.5 text-green-400 hover:text-green-300 text-xs transition-colors group"
                     >
-                      • {characterRefs.length} refs
-                    </button>
-                  ) : (
-                    <button
-                      onClick={onNavigateToCharacterRefs}
-                      className="ml-3 text-yellow-400 hover:text-yellow-300 underline text-xs"
-                    >
-                      Generate character refs
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      <span>{characterRefs.length} refs</span>
                     </button>
                   )}
                 </>
@@ -621,34 +627,40 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
                         key={selectedScene.videoUrl}
                         controls
                         autoPlay
-                        loop
                         className="max-h-full max-w-full rounded-lg shadow-2xl"
                       >
                         <source src={selectedScene.videoUrl} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
                     ) : (
-                      <div className="bg-gray-900 rounded-lg p-3">
-                        <Film className="w-10 h-10 text-gray-600 mx-auto mb-1.5" />
-                        <p className="text-white text-sm mb-0.5">No video generated</p>
-                        <p className="text-gray-400 text-xs">
-                          Click the button below to generate this scene
-                        </p>
+                      <div className="flex flex-col items-center justify-center bg-gray-900 rounded-lg p-8">
+                        <div className="flex items-center gap-3 mb-6">
+                          <Film className="w-8 h-8 text-gray-600" />
+                          <p className="text-white text-lg font-medium">No video generated</p>
+                        </div>
+                        <button
+                          onClick={() => handleGenerateScene(selectedScene.id)}
+                          disabled={characterRefs.length === 0 || generatingSceneIds.has(selectedScene.id)}
+                          className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                        >
+                          <Play className="w-4 h-4" />
+                          Generate Scene
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex-shrink-0 flex gap-2">
-                    <button
-                      onClick={() => handleGenerateScene(selectedScene.id)}
-                      disabled={characterRefs.length === 0 || generatingSceneIds.has(selectedScene.id)}
-                      className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Play className="w-4 h-4" />
-                      {selectedScene.generated ? 'Regenerate Scene' : 'Generate Scene'}
-                    </button>
+                  {selectedScene.videoUrl && (
+                    <div className="flex-shrink-0 flex gap-2">
+                      <button
+                        onClick={() => handleGenerateScene(selectedScene.id)}
+                        disabled={characterRefs.length === 0 || generatingSceneIds.has(selectedScene.id)}
+                        className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Play className="w-4 h-4" />
+                        Regenerate Scene
+                      </button>
 
-                    {selectedScene.generated && selectedScene.videoBlob && (
                       <button
                         onClick={() => handleEvaluateScene(selectedScene.id)}
                         disabled={evaluatingSceneIds.has(selectedScene.id)}
@@ -666,8 +678,8 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
                           </>
                         )}
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
 
                   {/* OpenAI API Key Input */}
@@ -775,6 +787,54 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId, onNavigateToChar
         )}
       </div>
       </div>
+
+      {/* Reference Images Modal */}
+      {showRefsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-gray-800">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gray-900 border-b border-gray-800 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-green-400" />
+                Character Reference Images
+              </h2>
+              <button
+                onClick={() => setShowRefsModal(false)}
+                className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {characterRefs.map((ref, index) => (
+                  <div key={index} className="relative group">
+                    <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden">
+                      <img
+                        src={ref.objectUrl}
+                        alt={`Reference ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
+                      Ref {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {characterRefs.length === 0 && (
+                <div className="text-center py-12">
+                  <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400">No reference images found</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

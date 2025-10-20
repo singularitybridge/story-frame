@@ -16,9 +16,9 @@ export const generateVideo = async (
 ): Promise<{objectUrl: string; blob: Blob; uri: string; video: Video}> => {
   console.log('Starting video generation with params:', params);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY not found in environment');
+    throw new Error('NEXT_PUBLIC_GEMINI_API_KEY not found in environment');
   }
 
   const ai = new GoogleGenAI({apiKey});

@@ -3,34 +3,47 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { Film, Video as VideoIcon, Package } from 'lucide-react';
-import projectsIndex from '../data/projects.json';
 import { Project } from '../types/project';
 
 const ProjectList: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   useEffect(() => {
     const loadProjects = async () => {
-      const loadedProjects: Project[] = [];
-
-      for (const projectRef of projectsIndex.projects) {
-        try {
-          const response = await fetch(`/data/${projectRef.file}`);
-          if (response.ok) {
-            const projectData = await response.json();
-            loadedProjects.push(projectData as Project);
-          }
-        } catch (err) {
-          console.error(`Failed to load project ${projectRef.id}:`, err);
+      try {
+        // Fetch projects index
+        const indexResponse = await fetch('/data/projects.json');
+        if (!indexResponse.ok) {
+          console.error('Failed to load projects index');
+          setLoading(false);
+          return;
         }
-      }
 
-      setProjects(loadedProjects);
-      setLoading(false);
+        const projectsIndex = await indexResponse.json();
+        const loadedProjects: Project[] = [];
+
+        for (const projectRef of projectsIndex.projects) {
+          try {
+            const response = await fetch(`/data/${projectRef.file}`);
+            if (response.ok) {
+              const projectData = await response.json();
+              loadedProjects.push(projectData as Project);
+            }
+          } catch (err) {
+            console.error(`Failed to load project ${projectRef.id}:`, err);
+          }
+        }
+
+        setProjects(loadedProjects);
+        setLoading(false);
+      } catch (err) {
+        console.error('Failed to load projects:', err);
+        setLoading(false);
+      }
     };
 
     loadProjects();
@@ -82,7 +95,7 @@ const ProjectList: React.FC = () => {
           {projects.map((project) => (
             <div
               key={project.id}
-              onClick={() => navigate(`/projects/${project.id}`)}
+              onClick={() => router.push(`/projects/${project.id}`)}
               className="bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-gray-700 hover:bg-gray-800/50 cursor-pointer transition-all group"
             >
               {/* Icon and Type Badge */}

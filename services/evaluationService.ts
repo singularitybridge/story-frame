@@ -157,7 +157,7 @@ export const evaluateFrameWithGemini = async (
   prompt: string,
   frameType: 'first' | 'last'
 ): Promise<{ matches: boolean; analysis: string; score: number }> => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('Gemini API key not available');
   }
@@ -236,7 +236,7 @@ export const compareVoiceoverWithGemini = async (
   transcribedText: string,
   expectedText: string
 ): Promise<{ matches: boolean; analysis: string; score: number }> => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('Gemini API key not available');
   }
