@@ -71,36 +71,56 @@ export const generateVideo = async (
       }
     }
   } else if (params.mode === GenerationMode.REFERENCES_TO_VIDEO) {
-    const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
+    // Portrait mode (9:16) does NOT support config.referenceImages
+    // Workaround: Use first reference image as starting frame (image parameter)
+    const isPortrait = params.aspectRatio === '9:16';
 
-    if (params.referenceImages) {
-      for (const img of params.referenceImages) {
-        console.log(`Adding reference image: ${img.file.name}`);
+    if (isPortrait && params.referenceImages && params.referenceImages.length > 0) {
+      // Portrait mode: Use first reference image as starting frame
+      const firstRef = params.referenceImages[0];
+      generateVideoPayload.image = {
+        imageBytes: firstRef.base64,
+        mimeType: firstRef.file.type,
+      };
+      console.log(
+        `Portrait mode detected: Using first reference image as starting frame: ${firstRef.file.name}`,
+      );
+      console.log(
+        'Note: Portrait mode does not support character references. Using image-to-video instead.',
+      );
+    } else {
+      // Landscape mode: Use config.referenceImages (normal character references)
+      const referenceImagesPayload: VideoGenerationReferenceImage[] = [];
+
+      if (params.referenceImages) {
+        for (const img of params.referenceImages) {
+          console.log(`Adding reference image: ${img.file.name}`);
+          referenceImagesPayload.push({
+            image: {
+              imageBytes: img.base64,
+              mimeType: img.file.type,
+            },
+            referenceType: VideoGenerationReferenceType.ASSET,
+          });
+        }
+      }
+
+      if (params.styleImage) {
+        console.log(
+          `Adding style image as a reference: ${params.styleImage.file.name}`,
+        );
         referenceImagesPayload.push({
           image: {
-            imageBytes: img.base64,
-            mimeType: img.file.type,
+            imageBytes: params.styleImage.base64,
+            mimeType: params.styleImage.file.type,
           },
-          referenceType: VideoGenerationReferenceType.ASSET,
+          referenceType: VideoGenerationReferenceType.STYLE,
         });
       }
-    }
 
-    if (params.styleImage) {
-      console.log(
-        `Adding style image as a reference: ${params.styleImage.file.name}`,
-      );
-      referenceImagesPayload.push({
-        image: {
-          imageBytes: params.styleImage.base64,
-          mimeType: params.styleImage.file.type,
-        },
-        referenceType: VideoGenerationReferenceType.STYLE,
-      });
-    }
-
-    if (referenceImagesPayload.length > 0) {
-      generateVideoPayload.config.referenceImages = referenceImagesPayload;
+      if (referenceImagesPayload.length > 0) {
+        generateVideoPayload.config.referenceImages = referenceImagesPayload;
+      }
     }
   } else if (params.mode === GenerationMode.EXTEND_VIDEO) {
     if (params.inputVideoObject) {
