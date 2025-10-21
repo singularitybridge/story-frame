@@ -37,7 +37,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
   // Default generation settings
   const [currentSettings, setCurrentSettings] = useState<GenerationSettings>({
     model: VeoModel.VEO,
-    aspectRatio: AspectRatio.LANDSCAPE,
+    aspectRatio: AspectRatio.PORTRAIT,
     resolution: Resolution.P720,
     isLooping: false,
   });
@@ -93,7 +93,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       const refs: GeneratedImage[] = [];
       const aspectRatioKey = currentSettings.aspectRatio === AspectRatio.PORTRAIT ? 'portrait' : 'landscape';
 
-      for (let i = 1; i <= 3; i++) {
+      for (let i = 1; i <= 10; i++) {
         try {
           // Try aspect-ratio-specific filename first
           let response = await fetch(`/generated-refs/${projectId}/character-ref-${aspectRatioKey}-${i}.png`);

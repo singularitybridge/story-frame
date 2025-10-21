@@ -39,7 +39,7 @@ const CharacterRefsModal: React.FC<CharacterRefsModalProps> = ({
       const existingImages: GeneratedImage[] = [];
       const aspectRatioKey = selectedAspectRatio === '16:9' ? 'landscape' : 'portrait';
 
-      for (let i = 1; i <= 3; i++) {
+      for (let i = 1; i <= 10; i++) {
         try {
           const response = await fetch(`/generated-refs/${projectId}/character-ref-${aspectRatioKey}-${i}.png`);
           if (response.ok) {
