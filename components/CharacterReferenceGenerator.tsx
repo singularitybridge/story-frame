@@ -2,33 +2,40 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
+'use client';
+
 import React, { useState } from 'react';
-import { Sparkles, Download, Loader2, X, ChevronLeft, ChevronRight, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Sparkles, Download, Loader2, X, ChevronLeft, ChevronRight, ArrowLeft, Monitor, Smartphone } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { generateCharacterReferences, GeneratedImage } from '../services/imageService';
 
 interface CharacterReferenceGeneratorProps {
   projectId: string;
 }
 
+type AspectRatio = '16:9' | '9:16';
+
 const CharacterReferenceGenerator: React.FC<CharacterReferenceGeneratorProps> = ({ projectId }) => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const [characterDescription, setCharacterDescription] = useState('');
   const [numberOfImages, setNumberOfImages] = useState(2);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Load existing images from public/generated-refs/{projectId} on mount
+  // Load existing images from public/generated-refs/{projectId} based on aspect ratio
   React.useEffect(() => {
     const loadExistingImages = async () => {
       const existingImages: GeneratedImage[] = [];
+      const aspectRatioKey = aspectRatio === '16:9' ? 'landscape' : 'portrait';
 
-      // Try to load pre-generated images for this project
+      // Try to load pre-generated images for this project and aspect ratio
       for (let i = 1; i <= 3; i++) {
         try {
-          const response = await fetch(`/generated-refs/${projectId}/character-ref-${i}.png`);
+          const response = await fetch(`/generated-refs/${projectId}/character-ref-${aspectRatioKey}-${i}.png`);
           if (response.ok) {
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
@@ -54,17 +61,19 @@ const CharacterReferenceGenerator: React.FC<CharacterReferenceGeneratorProps> = 
           }
         } catch (err) {
           // Image doesn't exist, skip
-          console.log(`No pre-generated image ${i} found for project ${projectId}`);
+          console.log(`No pre-generated ${aspectRatioKey} image ${i} found for project ${projectId}`);
         }
       }
 
       if (existingImages.length > 0) {
         setGeneratedImages(existingImages);
+      } else {
+        setGeneratedImages([]);
       }
     };
 
     loadExistingImages();
-  }, [projectId]);
+  }, [projectId, aspectRatio]);
 
   // Keyboard navigation for modal
   React.useEffect(() => {
@@ -97,9 +106,13 @@ const CharacterReferenceGenerator: React.FC<CharacterReferenceGeneratorProps> = 
     try {
       const images = await generateCharacterReferences(
         characterDescription,
-        numberOfImages
+        numberOfImages,
+        aspectRatio
       );
       setGeneratedImages(images);
+
+      // Auto-save generated images
+      await saveReferences(images);
     } catch (err) {
       console.error('Character reference generation failed:', err);
       setError(
@@ -109,6 +122,35 @@ const CharacterReferenceGenerator: React.FC<CharacterReferenceGeneratorProps> = 
       );
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const saveReferences = async (images: GeneratedImage[]) => {
+    setIsSaving(true);
+    const aspectRatioKey = aspectRatio === '16:9' ? 'landscape' : 'portrait';
+
+    try {
+      for (let i = 0; i < images.length; i++) {
+        const formData = new FormData();
+        formData.append('file', images[i].blob, `character-ref-${aspectRatioKey}-${i + 1}.png`);
+        formData.append('projectId', projectId);
+        formData.append('filename', `character-ref-${aspectRatioKey}-${i + 1}.png`);
+
+        const response = await fetch('/api/references', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to save reference ${i + 1}`);
+        }
+      }
+      console.log(`Successfully saved ${images.length} ${aspectRatioKey} reference images`);
+    } catch (err) {
+      console.error('Failed to save references:', err);
+      setError('References generated but failed to save. You can still download them manually.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -125,7 +167,7 @@ const CharacterReferenceGenerator: React.FC<CharacterReferenceGeneratorProps> = 
     <div className="w-full max-w-6xl mx-auto p-6">
       <div className="mb-8">
         <button
-          onClick={() => navigate(`/projects/${projectId}`)}
+          onClick={() => router.push(`/projects/${projectId}`)}
           className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -177,6 +219,43 @@ const CharacterReferenceGenerator: React.FC<CharacterReferenceGeneratorProps> = 
             <option value={2}>2 Images</option>
             <option value={3}>3 Images</option>
           </select>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-300 mb-2">
+            Aspect Ratio
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAspectRatio('16:9')}
+              disabled={isGenerating}
+              className={`flex-1 px-4 py-3 rounded-lg border transition-colors flex items-center justify-center gap-2 ${
+                aspectRatio === '16:9'
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <Monitor className="w-4 h-4" />
+              <span>Landscape (16:9)</span>
+            </button>
+            <button
+              onClick={() => setAspectRatio('9:16')}
+              disabled={isGenerating}
+              className={`flex-1 px-4 py-3 rounded-lg border transition-colors flex items-center justify-center gap-2 ${
+                aspectRatio === '9:16'
+                  ? 'bg-indigo-600 border-indigo-600 text-white'
+                  : 'bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Portrait (9:16)</span>
+            </button>
+          </div>
+          <p className="text-sm text-gray-400 mt-2">
+            {aspectRatio === '16:9'
+              ? 'For landscape/horizontal videos'
+              : 'For portrait/vertical videos (TikTok, Instagram Reels, etc.)'}
+          </p>
         </div>
 
         <button

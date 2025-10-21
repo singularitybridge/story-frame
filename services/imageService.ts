@@ -78,6 +78,7 @@ export const generateImage = async (
 export const generateCharacterReferences = async (
   characterDescription: string,
   numberOfImages: number = 2,
+  aspectRatio: '16:9' | '9:16' = '16:9',
 ): Promise<GeneratedImage[]> => {
   const prompts = [
     `Portrait of ${characterDescription}, front-facing, neutral friendly expression, high quality photorealistic, professional lighting`,
@@ -89,7 +90,7 @@ export const generateCharacterReferences = async (
 
   for (const prompt of prompts) {
     try {
-      const image = await generateImage({ prompt, aspectRatio: '16:9' });
+      const image = await generateImage({ prompt, aspectRatio });
       images.push(image);
     } catch (error) {
       console.error('Failed to generate image for prompt:', prompt, error);

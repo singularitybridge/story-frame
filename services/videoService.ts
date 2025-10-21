@@ -39,6 +39,8 @@ export const generateVideo = async (
   console.log('Character references:', characterReferences?.length || 0);
   console.log('Settings:', settings);
 
+  const aspectRatio = settings?.aspectRatio || AspectRatio.LANDSCAPE;
+
   // Convert GeneratedImage to ImageFile format
   const referenceImages: ImageFile[] = characterReferences
     ? await Promise.all(
@@ -51,11 +53,18 @@ export const generateVideo = async (
       )
     : [];
 
+  // Use REFERENCES_TO_VIDEO mode when references are provided
+  const mode = referenceImages.length === 0
+    ? GenerationMode.TEXT_TO_VIDEO
+    : GenerationMode.REFERENCES_TO_VIDEO;
+
+  console.log(`Using generation mode: ${mode}`);
+
   const params: GenerateVideoParams = {
-    mode: GenerationMode.REFERENCES_TO_VIDEO,
+    mode,
     model: settings?.model || VeoModel.VEO,
     prompt,
-    aspectRatio: settings?.aspectRatio || AspectRatio.LANDSCAPE,
+    aspectRatio,
     resolution: settings?.resolution || Resolution.P720,
     startFrame: null,
     endFrame: null,
