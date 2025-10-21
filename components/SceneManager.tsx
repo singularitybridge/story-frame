@@ -8,7 +8,7 @@ import { Play, Loader2, Film, CheckCircle2, Settings, MessageSquare, AlertCircle
 import { generateVideo, GeneratedVideo } from '../services/videoService';
 import { GeneratedImage } from '../services/imageService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
-import { evaluateVideo } from '../services/evaluationService';
+import { evaluateVideo, extractFrameFromVideo } from '../services/evaluationService';
 import { CostTracker } from './CostTracker';
 import { videoStorage } from '../services/videoStorage.server';
 import { evaluationStorage } from '../services/evaluationStorage.server';
@@ -278,12 +278,34 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       const veoPrompt = buildVeoPrompt(scene);
       console.log('Generated Veo prompt:', veoPrompt);
 
-      // Generate video with character references and current settings
+      // Get previous scene's last frame for shot continuity
+      const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
+      let startFrameDataUrl: string | undefined;
+
+      if (sceneIndex > 0) {
+        const previousScene = scenes[sceneIndex - 1];
+        if (previousScene.lastFrameDataUrl) {
+          startFrameDataUrl = previousScene.lastFrameDataUrl;
+          console.log(`Using last frame from previous scene "${previousScene.title}" for shot continuity`);
+        } else {
+          console.log('Previous scene has no last frame stored, using character references');
+        }
+      } else {
+        console.log('First scene - using character references as start frame');
+      }
+
+      // Generate video with optional start frame for continuity
+      // If startFrame is provided, it takes priority over character references
       const video = await generateVideo(
         veoPrompt,
         characterRefs.length > 0 ? characterRefs : undefined,
-        currentSettings
+        currentSettings,
+        startFrameDataUrl
       );
+
+      // Extract last frame from generated video for next scene's continuity
+      const lastFrameDataUrl = await extractFrameFromVideo(video.blob, Math.max(0, scene.duration - 0.5));
+      console.log('Extracted last frame from generated video for shot continuity');
 
       // Save video to server for persistence and get the server URL
       let serverUrl: string;
@@ -308,6 +330,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                   generated: true,
                   videoUrl: serverUrl,
                   settings: currentSettings,
+                  lastFrameDataUrl, // Store last frame for next scene
                   evaluation: undefined, // Clear previous evaluation
                 }
               : s

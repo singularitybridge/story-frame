@@ -15,30 +15,16 @@ const ProjectList: React.FC = () => {
   useEffect(() => {
     const loadProjects = async () => {
       try {
-        // Fetch projects index
-        const indexResponse = await fetch('/data/projects.json');
-        if (!indexResponse.ok) {
-          console.error('Failed to load projects index');
+        // Fetch all projects from API (merges runtime db + seed data)
+        const response = await fetch('/api/projects');
+        if (!response.ok) {
+          console.error('Failed to load projects');
           setLoading(false);
           return;
         }
 
-        const projectsIndex = await indexResponse.json();
-        const loadedProjects: Project[] = [];
-
-        for (const projectRef of projectsIndex.projects) {
-          try {
-            const response = await fetch(`/data/${projectRef.file}`);
-            if (response.ok) {
-              const projectData = await response.json();
-              loadedProjects.push(projectData as Project);
-            }
-          } catch (err) {
-            console.error(`Failed to load project ${projectRef.id}:`, err);
-          }
-        }
-
-        setProjects(loadedProjects);
+        const data = await response.json();
+        setProjects(data.projects || []);
         setLoading(false);
       } catch (err) {
         console.error('Failed to load projects:', err);

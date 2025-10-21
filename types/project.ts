@@ -27,6 +27,7 @@ export interface Scene {
   videoUrl?: string;
   videoBlob?: Blob;
   settings?: GenerationSettings;
+  lastFrameDataUrl?: string; // For shot continuity - used as start frame for next scene
 
   // Evaluation data
   evaluation?: VideoEvaluation;

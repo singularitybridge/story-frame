@@ -28,15 +28,21 @@ export interface VideoGenerationSettings {
 }
 
 /**
- * Generate a video with optional character reference images and custom settings
+ * Generate a video with optional character reference images, start frame, and custom settings
+ * @param prompt - Text prompt for video generation
+ * @param characterReferences - Optional character reference images for consistency
+ * @param settings - Optional generation settings (model, aspect ratio, resolution, looping)
+ * @param startFrameDataUrl - Optional data URL of start frame from previous scene (for shot continuity)
  */
 export const generateVideo = async (
   prompt: string,
   characterReferences?: GeneratedImage[],
   settings?: VideoGenerationSettings,
+  startFrameDataUrl?: string,
 ): Promise<GeneratedVideo> => {
   console.log('Generating video with prompt:', prompt);
   console.log('Character references:', characterReferences?.length || 0);
+  console.log('Start frame provided:', !!startFrameDataUrl);
   console.log('Settings:', settings);
 
   const aspectRatio = settings?.aspectRatio || AspectRatio.LANDSCAPE;
@@ -53,10 +59,30 @@ export const generateVideo = async (
       )
     : [];
 
-  // Use REFERENCES_TO_VIDEO mode when references are provided
-  const mode = referenceImages.length === 0
-    ? GenerationMode.TEXT_TO_VIDEO
-    : GenerationMode.REFERENCES_TO_VIDEO;
+  // Convert start frame data URL to ImageFile if provided
+  let startFrame: ImageFile | null = null;
+  if (startFrameDataUrl) {
+    const base64Data = startFrameDataUrl.split(',')[1];
+    const mimeType = startFrameDataUrl.match(/data:([^;]+);/)?.[1] || 'image/png';
+    const blob = await fetch(startFrameDataUrl).then(r => r.blob());
+    startFrame = {
+      file: new File([blob], 'start-frame.png', { type: mimeType }),
+      base64: base64Data,
+    };
+    console.log('Converted start frame data URL to ImageFile for shot continuity');
+  }
+
+  // Use FRAMES_TO_VIDEO mode when start frame is provided (shot continuity)
+  // Use REFERENCES_TO_VIDEO mode when only references are provided (character consistency)
+  // Use TEXT_TO_VIDEO mode otherwise
+  let mode: GenerationMode;
+  if (startFrame) {
+    mode = GenerationMode.FRAMES_TO_VIDEO;
+  } else if (referenceImages.length > 0) {
+    mode = GenerationMode.REFERENCES_TO_VIDEO;
+  } else {
+    mode = GenerationMode.TEXT_TO_VIDEO;
+  }
 
   console.log(`Using generation mode: ${mode}`);
 
@@ -66,7 +92,7 @@ export const generateVideo = async (
     prompt,
     aspectRatio,
     resolution: settings?.resolution || Resolution.P720,
-    startFrame: null,
+    startFrame,
     endFrame: null,
     referenceImages,
     styleImage: null,
