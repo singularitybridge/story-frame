@@ -28,6 +28,7 @@ export interface Scene {
   videoBlob?: Blob;
   settings?: GenerationSettings;
   lastFrameDataUrl?: string; // For shot continuity - used as start frame for next scene
+  referenceMode?: 'previous' | number; // 'previous' = use previous shot, number = use specific ref (1-based)
 
   // Evaluation data
   evaluation?: VideoEvaluation;

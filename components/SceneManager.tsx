@@ -278,27 +278,58 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       const veoPrompt = buildVeoPrompt(scene);
       console.log('Generated Veo prompt:', veoPrompt);
 
-      // Get previous scene's last frame for shot continuity
+      // Get previous scene's last frame for shot continuity or use selected reference
       const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
       let startFrameDataUrl: string | undefined;
+      let selectedRefs: string[] | undefined;
 
-      if (sceneIndex > 0) {
-        const previousScene = scenes[sceneIndex - 1];
-        if (previousScene.lastFrameDataUrl) {
-          startFrameDataUrl = previousScene.lastFrameDataUrl;
-          console.log(`Using last frame from previous scene "${previousScene.title}" for shot continuity`);
+      // Determine which reference to use based on referenceMode
+      if (scene.referenceMode !== undefined) {
+        if (scene.referenceMode === 'previous') {
+          // Use previous scene's last frame
+          if (sceneIndex > 0) {
+            const previousScene = scenes[sceneIndex - 1];
+            if (previousScene.lastFrameDataUrl) {
+              startFrameDataUrl = previousScene.lastFrameDataUrl;
+              console.log(`Using last frame from previous scene "${previousScene.title}" for shot continuity`);
+            } else {
+              console.log('Previous scene has no last frame stored');
+            }
+          }
+          // Don't send character refs when using previous shot
+          selectedRefs = undefined;
         } else {
-          console.log('Previous scene has no last frame stored, using character references');
+          // Use specific reference image (1-based index)
+          const refIndex = scene.referenceMode - 1;
+          if (refIndex >= 0 && refIndex < characterRefs.length) {
+            selectedRefs = [characterRefs[refIndex]];
+            console.log(`Using reference image ${scene.referenceMode} for scene "${scene.title}"`);
+          } else {
+            console.log(`Invalid reference mode ${scene.referenceMode}, using all character references`);
+            selectedRefs = characterRefs.length > 0 ? characterRefs : undefined;
+          }
         }
       } else {
-        console.log('First scene - using character references as start frame');
+        // Backward compatibility: use existing logic
+        if (sceneIndex > 0) {
+          const previousScene = scenes[sceneIndex - 1];
+          if (previousScene.lastFrameDataUrl) {
+            startFrameDataUrl = previousScene.lastFrameDataUrl;
+            console.log(`Using last frame from previous scene "${previousScene.title}" for shot continuity`);
+          } else {
+            console.log('Previous scene has no last frame stored, using character references');
+          }
+        } else {
+          console.log('First scene - using character references as start frame');
+        }
+        selectedRefs = characterRefs.length > 0 ? characterRefs : undefined;
       }
 
       // Generate video with optional start frame for continuity
       // If startFrame is provided, it takes priority over character references
       const video = await generateVideo(
         veoPrompt,
-        characterRefs.length > 0 ? characterRefs : undefined,
+        selectedRefs,
         currentSettings,
         startFrameDataUrl
       );
@@ -618,7 +649,9 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
 
       {/* Right Column - Scene Controls (1/4) */}
       <div className="w-1/4 bg-white border-l border-gray-200 overflow-y-auto flex-shrink-0">
-        {selectedScene && (
+        {selectedScene && (() => {
+          const sceneIndex = scenes.findIndex((s) => s.id === selectedScene.id);
+          return (
           <div className="p-4 space-y-4">
             {/* Scene Info */}
             <div>
@@ -690,6 +723,37 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                   </div>
                 </div>
               )}
+
+              {/* Reference Selection */}
+              <div className="mb-3">
+                <label className="block text-xs font-medium text-gray-700 mb-1">Start Frame</label>
+                <select
+                  value={selectedScene.referenceMode ?? (sceneIndex === 0 ? 1 : 'previous')}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const referenceMode = value === 'previous' ? 'previous' : parseInt(value, 10);
+                    setProject((prevProject) => {
+                      if (!prevProject) return prevProject;
+                      return {
+                        ...prevProject,
+                        scenes: prevProject.scenes.map((s) =>
+                          s.id === selectedScene.id ? { ...s, referenceMode } : s
+                        ),
+                      };
+                    });
+                  }}
+                  className="w-full bg-white border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-900"
+                >
+                  {sceneIndex > 0 && (
+                    <option value="previous">Continue from previous shot</option>
+                  )}
+                  {characterRefs.map((_, index) => (
+                    <option key={index} value={index + 1}>
+                      Reference Image {index + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Settings Toggle */}
@@ -884,7 +948,8 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
       </div>
       </div>
 
