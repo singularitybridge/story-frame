@@ -55,34 +55,27 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     }
   }, []);
 
-  // Load the specific project from data files
+  // Load the specific project from API (merges runtime db + seed data)
   useEffect(() => {
     const loadProject = async () => {
       try {
-        // Fetch projects index
-        const indexResponse = await fetch('/data/projects.json');
-        if (!indexResponse.ok) {
-          setError(`Failed to load projects index`);
+        // Fetch all projects from API
+        const response = await fetch('/api/projects');
+        if (!response.ok) {
+          setError(`Failed to load projects`);
           return;
         }
 
-        const projectsIndex = await indexResponse.json();
-        const projectRef = projectsIndex.projects.find((p: any) => p.id === projectId);
+        const data = await response.json();
+        const projectData = data.projects.find((p: Project) => p.id === projectId);
 
-        if (!projectRef) {
+        if (!projectData) {
           setError(`Project ${projectId} not found`);
           return;
         }
 
-        // Fetch the specific project data
-        const response = await fetch(`/data/${projectRef.file}`);
-        if (response.ok) {
-          const projectData = await response.json();
-          setProject(projectData as Project);
-          setSelectedSceneId(projectData.scenes[0]?.id);
-        } else {
-          setError(`Failed to load project ${projectId}`);
-        }
+        setProject(projectData);
+        setSelectedSceneId(projectData.scenes[0]?.id);
       } catch (err) {
         console.error(`Failed to load project ${projectId}:`, err);
         setError(`Failed to load project ${projectId}`);
