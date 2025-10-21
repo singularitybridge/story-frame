@@ -14,6 +14,7 @@ import { videoStorage } from '../services/videoStorage.server';
 import { evaluationStorage } from '../services/evaluationStorage.server';
 import { projectStorage } from '../services/projectStorage.server';
 import { Project, Scene, GenerationSettings } from '../types/project';
+import CharacterRefsModal from './CharacterRefsModal';
 
 interface SceneManagerProps {
   projectId: string;
@@ -91,16 +92,24 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     loadProject();
   }, [projectId]);
 
-  // Auto-load character reference images (per-project)
+  // Auto-load character reference images (per-project and aspect ratio)
   useEffect(() => {
     if (!projectId) return;
 
     const loadCharacterRefs = async () => {
       const refs: GeneratedImage[] = [];
+      const aspectRatioKey = currentSettings.aspectRatio === AspectRatio.PORTRAIT ? 'portrait' : 'landscape';
 
       for (let i = 1; i <= 3; i++) {
         try {
-          const response = await fetch(`/generated-refs/${projectId}/character-ref-${i}.png`);
+          // Try aspect-ratio-specific filename first
+          let response = await fetch(`/generated-refs/${projectId}/character-ref-${aspectRatioKey}-${i}.png`);
+
+          // Fall back to old naming for backwards compatibility (treat as landscape)
+          if (!response.ok && aspectRatioKey === 'landscape') {
+            response = await fetch(`/generated-refs/${projectId}/character-ref-${i}.png`);
+          }
+
           if (response.ok) {
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
@@ -124,16 +133,16 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
             });
           }
         } catch (err) {
-          console.log(`Character ref ${i} not found`);
+          console.log(`Character ref ${aspectRatioKey}-${i} not found`);
         }
       }
 
       setCharacterRefs(refs);
-      console.log(`Loaded ${refs.length} character reference images`);
+      console.log(`Loaded ${refs.length} ${aspectRatioKey} character reference images`);
     };
 
     loadCharacterRefs();
-  }, [projectId]);
+  }, [projectId, currentSettings.aspectRatio]);
 
   // Note: Project data persistence removed from localStorage due to quota limits.
   // Videos and evaluations are now stored server-side via API routes.
@@ -729,6 +738,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                   />
                   <label htmlFor="looping" className="text-sm text-gray-700">Enable looping</label>
                 </div>
+
               </div>
             )}
 
@@ -736,7 +746,10 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
             <div className="space-y-2">
               <button
                 onClick={() => handleGenerateScene(selectedScene.id)}
-                disabled={characterRefs.length === 0 || generatingSceneIds.has(selectedScene.id)}
+                disabled={
+                  characterRefs.length === 0 ||
+                  generatingSceneIds.has(selectedScene.id)
+                }
                 className="w-full px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 <Play className="w-4 h-4" />
@@ -861,50 +874,11 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
 
       {/* Reference Images Modal */}
       {showRefsModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-gray-200">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <ImageIcon className="w-5 h-5 text-green-400" />
-                Character Reference Images
-              </h2>
-              <button
-                onClick={() => setShowRefsModal(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {characterRefs.map((ref, index) => (
-                  <div key={index} className="relative group">
-                    <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                      <img
-                        src={ref.objectUrl}
-                        alt={`Reference ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-white font-medium">
-                      Ref {index + 1}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {characterRefs.length === 0 && (
-                <div className="text-center py-12">
-                  <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                  <p className="text-gray-400">No reference images found</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        <CharacterRefsModal
+          projectId={projectId}
+          currentAspectRatio={currentSettings.aspectRatio}
+          onClose={() => setShowRefsModal(false)}
+        />
       )}
     </div>
   );
