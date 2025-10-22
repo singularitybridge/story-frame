@@ -2,9 +2,9 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Loader2, Film, CheckCircle2, Settings, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download } from 'lucide-react';
+import { Play, Loader2, Film, CheckCircle2, Settings, Settings2, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download, ImagePlus, HelpCircle } from 'lucide-react';
 import { generateVideo, GeneratedVideo } from '../services/videoService';
 import { GeneratedImage } from '../services/imageService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
@@ -15,6 +15,10 @@ import { evaluationStorage } from '../services/evaluationStorage.server';
 import { projectStorage } from '../services/projectStorage.server';
 import { Project, Scene, GenerationSettings } from '../types/project';
 import CharacterRefsModal from './CharacterRefsModal';
+import { ReferenceSelectionModal } from './ReferenceSelectionModal';
+import { ProjectSettingsModal } from './ProjectSettingsModal';
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { PlaybackBar } from './PlaybackBar';
 
 interface SceneManagerProps {
   projectId: string;
@@ -32,12 +36,20 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
   const [openaiApiKey, setOpenaiApiKey] = useState<string>('');
   const [copiedPrompt, setCopiedPrompt] = useState<boolean>(false);
   const [showRefsModal, setShowRefsModal] = useState<boolean>(false);
+  const [showRefSelectModal, setShowRefSelectModal] = useState<boolean>(false);
+  const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
 
-  // Default generation settings
-  const [currentSettings, setCurrentSettings] = useState<GenerationSettings>({
+  // Playback controls
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isPlayingAll, setIsPlayingAll] = useState<boolean>(false);
+  const [loopEnabled, setLoopEnabled] = useState<boolean>(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Default generation settings (aspect ratio is now project-level)
+  const [currentSettings, setCurrentSettings] = useState<Omit<GenerationSettings, 'aspectRatio'>>({
     model: VeoModel.VEO,
-    aspectRatio: AspectRatio.PORTRAIT,
     resolution: Resolution.P720,
     isLooping: false,
   });
@@ -87,11 +99,11 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
 
   // Auto-load character reference images (per-project and aspect ratio)
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || !project) return;
 
     const loadCharacterRefs = async () => {
       const refs: GeneratedImage[] = [];
-      const aspectRatioKey = currentSettings.aspectRatio === AspectRatio.PORTRAIT ? 'portrait' : 'landscape';
+      const aspectRatioKey = (project.aspectRatio ?? AspectRatio.PORTRAIT) === AspectRatio.PORTRAIT ? 'portrait' : 'landscape';
 
       for (let i = 1; i <= 10; i++) {
         try {
@@ -135,7 +147,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     };
 
     loadCharacterRefs();
-  }, [projectId, currentSettings.aspectRatio]);
+  }, [projectId, project?.aspectRatio]);
 
   // Note: Project data persistence removed from localStorage due to quota limits.
   // Videos and evaluations are now stored server-side via API routes.
@@ -228,6 +240,83 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
   const scenes = project?.scenes || [];
   const selectedScene = scenes.find((s) => s.id === selectedSceneId);
 
+  // Keyboard navigation and playback controls
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle if user is typing in an input or textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
+      // Handle ? for help (always works, even with modals open)
+      if (e.key === '?' && e.shiftKey) {
+        e.preventDefault();
+        setShowKeyboardShortcuts(true);
+        return;
+      }
+
+      // Handle Escape for closing modals and stopping playback
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (showKeyboardShortcuts) {
+          setShowKeyboardShortcuts(false);
+        } else if (showRefsModal) {
+          setShowRefsModal(false);
+        } else if (showRefSelectModal) {
+          setShowRefSelectModal(false);
+        } else if (showProjectSettings) {
+          setShowProjectSettings(false);
+        } else if (isPlaying || isPlayingAll) {
+          handleStop();
+        }
+        return;
+      }
+
+      // Don't handle other keys if modals are open
+      if (showRefsModal || showRefSelectModal || showProjectSettings || showKeyboardShortcuts) return;
+
+      const currentIndex = scenes.findIndex(s => s.id === selectedSceneId);
+
+      switch (e.key) {
+        case ' ': // Space bar
+          e.preventDefault();
+          handlePlayPause();
+          break;
+        case 'Enter':
+          if (e.shiftKey) {
+            e.preventDefault();
+            handlePlayAll();
+          }
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          if (currentIndex < scenes.length - 1) {
+            setSelectedSceneId(scenes[currentIndex + 1].id);
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (currentIndex > 0) {
+            setSelectedSceneId(scenes[currentIndex - 1].id);
+          }
+          break;
+        case 'Home':
+          e.preventDefault();
+          if (scenes.length > 0) {
+            setSelectedSceneId(scenes[0].id);
+          }
+          break;
+        case 'End':
+          e.preventDefault();
+          if (scenes.length > 0) {
+            setSelectedSceneId(scenes[scenes.length - 1].id);
+          }
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [scenes, selectedSceneId, showRefsModal, showRefSelectModal, showProjectSettings, showKeyboardShortcuts, isPlaying, isPlayingAll]);
+
   /**
    * Build a proper Veo 3.1 prompt with dialogue syntax
    * Format: visual description + dialogue with proper syntax + camera info
@@ -264,6 +353,83 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       console.error('Failed to copy prompt:', err);
     }
   };
+
+  // Playback control functions
+  const handlePlayPause = () => {
+    if (!videoRef.current) return;
+
+    if (isPlaying) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      videoRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handlePlayAll = () => {
+    if (!selectedScene || !videoRef.current) return;
+
+    // Start playing current scene
+    setIsPlayingAll(true);
+    videoRef.current.play();
+    setIsPlaying(true);
+  };
+
+  const handleStop = () => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+    }
+    setIsPlaying(false);
+    setIsPlayingAll(false);
+  };
+
+  const handleToggleLoop = () => {
+    setLoopEnabled(!loopEnabled);
+  };
+
+  // Handle video ended event for Play All feature
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleVideoEnded = () => {
+      setIsPlaying(false);
+
+      if (isPlayingAll) {
+        // Move to next scene if available
+        const currentIndex = scenes.findIndex(s => s.id === selectedSceneId);
+        if (currentIndex < scenes.length - 1) {
+          const nextScene = scenes[currentIndex + 1];
+          if (nextScene.generated && nextScene.videoUrl) {
+            setSelectedSceneId(nextScene.id);
+            // Video will auto-play when scene changes due to key change
+            setTimeout(() => {
+              if (videoRef.current) {
+                videoRef.current.play();
+                setIsPlaying(true);
+              }
+            }, 100);
+          } else {
+            // Stop if next scene has no video
+            setIsPlayingAll(false);
+          }
+        } else {
+          // Reached the end
+          setIsPlayingAll(false);
+        }
+      } else if (loopEnabled) {
+        // Loop current video
+        video.currentTime = 0;
+        video.play();
+        setIsPlaying(true);
+      }
+    };
+
+    video.addEventListener('ended', handleVideoEnded);
+    return () => video.removeEventListener('ended', handleVideoEnded);
+  }, [isPlayingAll, loopEnabled, scenes, selectedSceneId]);
 
   const handleGenerateScene = async (sceneId: string) => {
     const scene = scenes.find((s) => s.id === sceneId);
@@ -327,10 +493,16 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
 
       // Generate video with optional start frame for continuity
       // If startFrame is provided, it takes priority over character references
+      // Use project-level aspect ratio
+      const sceneSettings: GenerationSettings = {
+        ...currentSettings,
+        aspectRatio: project.aspectRatio ?? AspectRatio.PORTRAIT,
+      };
+
       const video = await generateVideo(
         veoPrompt,
         selectedRefs,
-        currentSettings,
+        sceneSettings,
         startFrameDataUrl
       );
 
@@ -360,7 +532,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                   ...s,
                   generated: true,
                   videoUrl: serverUrl,
-                  settings: currentSettings,
+                  settings: sceneSettings,
                   lastFrameDataUrl, // Store last frame for next scene
                   evaluation: undefined, // Clear previous evaluation
                 }
@@ -532,6 +704,17 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Project Settings Button */}
+          {project && (
+            <button
+              onClick={() => setShowProjectSettings(true)}
+              className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <Settings2 className="w-4 h-4" />
+              <span className="text-sm font-medium">Project Settings</span>
+            </button>
+          )}
+
           {/* Export Video Button */}
           <button
             onClick={handleExportVideo}
@@ -550,6 +733,16 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
               </>
             )}
           </button>
+
+          {/* Help Button - Keyboard Shortcuts */}
+          <button
+            onClick={() => setShowKeyboardShortcuts(true)}
+            className="p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Keyboard Shortcuts (?)"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+
           <CostTracker />
         </div>
       </div>
@@ -560,41 +753,94 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
         <div className="w-1/4 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
 
         <div className="p-2">
-          {scenes.map((scene, index) => (
-            <button
-              key={scene.id}
-              onClick={() => setSelectedSceneId(scene.id)}
-              className={`w-full text-left p-3 mb-2 rounded-lg transition-all ${
-                selectedSceneId === scene.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-gray-400">
-                    {String(index + 1).padStart(2, '0')}
-                  </span>
-                  <span className="font-medium text-sm">{scene.title}</span>
+          {scenes.map((scene, index) => {
+            const currentRef = scene.referenceMode ?? (index === 0 ? 1 : 'previous');
+            const isReference = typeof currentRef === 'number';
+
+            // Get thumbnail URL
+            let thumbnailUrl: string | undefined;
+            if (isReference && typeof currentRef === 'number') {
+              const refIndex = currentRef - 1;
+              if (characterRefs[refIndex]) {
+                thumbnailUrl = characterRefs[refIndex].objectUrl;
+              }
+            } else if (!isReference && index > 0) {
+              const previousScene = scenes[index - 1];
+              thumbnailUrl = previousScene.lastFrameDataUrl;
+            }
+
+            return (
+              <button
+                key={scene.id}
+                onClick={() => setSelectedSceneId(scene.id)}
+                className={`w-full text-left p-2 mb-2 rounded-lg transition-all ${
+                  selectedSceneId === scene.id
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <div className="flex gap-2">
+                  {/* Thumbnail */}
+                  <div className="w-12 h-20 flex-shrink-0 rounded overflow-hidden bg-gray-50 border border-gray-200">
+                    {thumbnailUrl ? (
+                      <img
+                        src={thumbnailUrl}
+                        alt={`Scene ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : isReference ? (
+                      <div className="w-full h-full flex items-center justify-center bg-indigo-50">
+                        <ImageIcon className="w-5 h-5 text-indigo-300" />
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+                        <Film className="w-5 h-5 text-indigo-300" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-mono ${selectedSceneId === scene.id ? 'text-indigo-200' : 'text-gray-400'}`}>
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                        <span className="font-medium text-sm">{scene.title}</span>
+                        {/* Flow Indicator */}
+                        {isReference ? (
+                          <ImageIcon
+                            className={`w-3.5 h-3.5 flex-shrink-0 ${selectedSceneId === scene.id ? 'text-indigo-200' : 'text-indigo-500'}`}
+                            title={`Reference Image ${currentRef}`}
+                          />
+                        ) : (
+                          <Film
+                            className={`w-3.5 h-3.5 flex-shrink-0 ${selectedSceneId === scene.id ? 'text-purple-200' : 'text-purple-500'}`}
+                            title="Continue from previous shot"
+                          />
+                        )}
+                      </div>
+                      {generatingSceneIds.has(scene.id) ? (
+                        <Loader2 className="w-4 h-4 text-indigo-400 animate-spin flex-shrink-0" />
+                      ) : scene.generated ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      ) : null}
+                    </div>
+                    <p className={`text-xs line-clamp-2 mt-1 ${selectedSceneId === scene.id ? 'text-indigo-100' : 'text-gray-400'}`}>
+                      {scene.prompt}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className={`text-xs ${selectedSceneId === scene.id ? 'text-indigo-200' : 'text-gray-500'}`}>{scene.duration}s</span>
+                      <span className={`text-xs ${selectedSceneId === scene.id ? 'text-indigo-300' : 'text-gray-600'}`}>•</span>
+                      <span className={`text-xs ${selectedSceneId === scene.id ? 'text-indigo-200' : 'text-gray-500'}`}>
+                        {scene.cameraAngle}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                {generatingSceneIds.has(scene.id) ? (
-                  <Loader2 className="w-4 h-4 text-indigo-400 animate-spin flex-shrink-0" />
-                ) : scene.generated ? (
-                  <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
-                ) : null}
-              </div>
-              <p className="text-xs text-gray-400 line-clamp-2 mt-1">
-                {scene.prompt}
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-xs text-gray-500">{scene.duration}s</span>
-                <span className="text-xs text-gray-600">•</span>
-                <span className="text-xs text-gray-500">
-                  {scene.cameraAngle}
-                </span>
-              </div>
-            </button>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -624,10 +870,8 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                 <div className="flex-1 flex items-center justify-center overflow-hidden">
                   {selectedScene.videoUrl ? (
                     <video
+                      ref={videoRef}
                       key={selectedScene.videoUrl}
-                      controls
-                      autoPlay
-                      loop
                       className="max-h-full max-w-full rounded-lg shadow-2xl"
                     >
                       <source src={selectedScene.videoUrl} type="video/mp4" />
@@ -726,33 +970,74 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
 
               {/* Reference Selection */}
               <div className="mb-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Start Frame</label>
-                <select
-                  value={selectedScene.referenceMode ?? (sceneIndex === 0 ? 1 : 'previous')}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    const referenceMode = value === 'previous' ? 'previous' : parseInt(value, 10);
-                    setProject((prevProject) => {
-                      if (!prevProject) return prevProject;
-                      return {
-                        ...prevProject,
-                        scenes: prevProject.scenes.map((s) =>
-                          s.id === selectedScene.id ? { ...s, referenceMode } : s
-                        ),
-                      };
-                    });
-                  }}
-                  className="w-full bg-white border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-900"
+                <label className="block text-xs font-medium text-gray-700 mb-2">Start Frame</label>
+                <button
+                  onClick={() => setShowRefSelectModal(true)}
+                  className="w-full bg-white border-2 border-gray-200 hover:border-indigo-300 rounded-lg p-3 transition-all group text-left"
                 >
-                  {sceneIndex > 0 && (
-                    <option value="previous">Continue from previous shot</option>
-                  )}
-                  {characterRefs.map((_, index) => (
-                    <option key={index} value={index + 1}>
-                      Reference Image {index + 1}
-                    </option>
-                  ))}
-                </select>
+                  {(() => {
+                    const currentRef = selectedScene.referenceMode ?? (sceneIndex === 0 ? 1 : 'previous');
+                    const isPrevious = currentRef === 'previous';
+
+                    // Get the image URL
+                    let imageUrl: string | undefined;
+                    if (!isPrevious && typeof currentRef === 'number') {
+                      // Use character reference
+                      const refIndex = currentRef - 1;
+                      if (characterRefs[refIndex]) {
+                        imageUrl = characterRefs[refIndex].objectUrl;
+                      }
+                    } else if (isPrevious && sceneIndex > 0) {
+                      // Use previous scene's last frame if available
+                      const previousScene = scenes[sceneIndex - 1];
+                      imageUrl = previousScene.lastFrameDataUrl;
+                    }
+
+                    return (
+                      <div className="flex items-center gap-3">
+                        {/* Thumbnail */}
+                        <div className="w-16 h-28 flex-shrink-0 rounded overflow-hidden bg-gray-100 border border-gray-200">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt="Start frame"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : isPrevious ? (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-50">
+                              <Film size={24} className="text-indigo-400" />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                              <ImageIcon size={24} className="text-gray-300" />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Label and Change Hint */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            {isPrevious ? (
+                              <>
+                                <Film size={16} className="text-indigo-600 flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-900">Previous Shot</span>
+                              </>
+                            ) : (
+                              <>
+                                <ImageIcon size={16} className="text-indigo-600 flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-900">Reference {currentRef}</span>
+                              </>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-500 group-hover:text-indigo-600 transition-colors">
+                            <ImagePlus size={12} />
+                            <span>Click to change</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </button>
               </div>
             </div>
 
@@ -780,19 +1065,6 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                     className="w-full bg-white border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-900"
                   >
                     <option value={VeoModel.VEO}>Veo 3.1</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Aspect Ratio</label>
-                  <select
-                    value={currentSettings.aspectRatio}
-                    onChange={(e) => setCurrentSettings({ ...currentSettings, aspectRatio: e.target.value as AspectRatio })}
-                    className="w-full bg-white border border-gray-200 rounded px-3 py-1.5 text-sm text-gray-900"
-                  >
-                    <option value={AspectRatio.LANDSCAPE}>16:9 Landscape</option>
-                    <option value={AspectRatio.PORTRAIT}>9:16 Portrait</option>
-                    <option value={AspectRatio.SQUARE}>1:1 Square</option>
                   </select>
                 </div>
 
@@ -959,6 +1231,89 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
           projectId={projectId}
           currentAspectRatio={currentSettings.aspectRatio}
           onClose={() => setShowRefsModal(false)}
+        />
+      )}
+
+      {/* Reference Selection Modal */}
+      {selectedScene && (
+        <ReferenceSelectionModal
+          isOpen={showRefSelectModal}
+          onClose={() => setShowRefSelectModal(false)}
+          characterRefs={characterRefs.map((ref) => ref.objectUrl)}
+          selectedReference={
+            selectedScene.referenceMode ??
+            (scenes.findIndex((s) => s.id === selectedScene.id) === 0 ? 1 : 'previous')
+          }
+          onSelectReference={(ref) => {
+            setProject((prevProject) => {
+              if (!prevProject) return prevProject;
+              return {
+                ...prevProject,
+                scenes: prevProject.scenes.map((s) =>
+                  s.id === selectedScene.id ? { ...s, referenceMode: ref } : s
+                ),
+              };
+            });
+          }}
+          sceneIndex={scenes.findIndex((s) => s.id === selectedScene.id)}
+          previousSceneTitle={
+            (() => {
+              const sceneIndex = scenes.findIndex((s) => s.id === selectedScene.id);
+              return sceneIndex > 0 ? scenes[sceneIndex - 1].title : undefined;
+            })()
+          }
+          projectId={projectId}
+        />
+      )}
+
+      {/* Project Settings Modal */}
+      {project && (
+        <ProjectSettingsModal
+          isOpen={showProjectSettings}
+          onClose={() => setShowProjectSettings(false)}
+          projectName={project.title}
+          projectDescription={project.description}
+          aspectRatio={project.aspectRatio ?? AspectRatio.PORTRAIT}
+          defaultModel={project.defaultModel ?? VeoModel.VEO}
+          defaultResolution={project.defaultResolution ?? Resolution.P720}
+          onSave={(settings) => {
+            setProject((prevProject) => {
+              if (!prevProject) return prevProject;
+              const updatedProject = {
+                ...prevProject,
+                title: settings.title,
+                description: settings.description,
+                aspectRatio: settings.aspectRatio,
+                defaultModel: settings.defaultModel,
+                defaultResolution: settings.defaultResolution,
+              };
+              // Save to server
+              projectStorage.saveProject(updatedProject);
+              return updatedProject;
+            });
+          }}
+        />
+      )}
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showKeyboardShortcuts}
+        onClose={() => setShowKeyboardShortcuts(false)}
+      />
+
+      {/* Playback Bar */}
+      {project && selectedScene && (
+        <PlaybackBar
+          isPlaying={isPlaying}
+          isPlayingAll={isPlayingAll}
+          loopEnabled={loopEnabled}
+          currentSceneIndex={scenes.findIndex((s) => s.id === selectedSceneId)}
+          totalScenes={scenes.length}
+          currentSceneTitle={selectedScene.title}
+          onPlayPause={handlePlayPause}
+          onPlayAll={handlePlayAll}
+          onStop={handleStop}
+          onToggleLoop={handleToggleLoop}
         />
       )}
     </div>
