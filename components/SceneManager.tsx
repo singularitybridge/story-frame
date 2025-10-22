@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Loader2, Film, CheckCircle2, Settings, Settings2, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download, ImagePlus, HelpCircle } from 'lucide-react';
+import { Play, Loader2, Film, CheckCircle2, Settings, Settings2, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download, ImagePlus, HelpCircle, Paperclip } from 'lucide-react';
 import { generateVideo, GeneratedVideo } from '../services/videoService';
 import { GeneratedImage } from '../services/imageService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
@@ -13,12 +13,13 @@ import { CostTracker } from './CostTracker';
 import { videoStorage } from '../services/videoStorage.server';
 import { evaluationStorage } from '../services/evaluationStorage.server';
 import { projectStorage } from '../services/projectStorage.server';
-import { Project, Scene, GenerationSettings } from '../types/project';
+import { Project, Scene, GenerationSettings, SceneAssetAttachment } from '../types/project';
 import CharacterRefsModal from './CharacterRefsModal';
 import { ReferenceSelectionModal } from './ReferenceSelectionModal';
 import { ProjectSettingsModal } from './ProjectSettingsModal';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { PlaybackBar } from './PlaybackBar';
+import AssetPickerModal from './assets/AssetPickerModal';
 
 interface SceneManagerProps {
   projectId: string;
@@ -39,6 +40,7 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
   const [showRefSelectModal, setShowRefSelectModal] = useState<boolean>(false);
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [showAssetPicker, setShowAssetPicker] = useState<boolean>(false);
 
   // Playback controls
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState<boolean>(false);
@@ -148,6 +150,69 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
 
     loadCharacterRefs();
   }, [projectId, project?.aspectRatio]);
+
+  // Helper function to load attached assets as GeneratedImage[]
+  const loadAttachedAssetsAsRefs = async (
+    attachments: SceneAssetAttachment[],
+    projectId: string
+  ): Promise<GeneratedImage[]> => {
+    if (!attachments || attachments.length === 0) {
+      return [];
+    }
+
+    const refs: GeneratedImage[] = [];
+
+    // Sort attachments by order to maintain priority
+    const sortedAttachments = [...attachments].sort((a, b) => a.order - b.order);
+
+    for (const attachment of sortedAttachments) {
+      try {
+        // Fetch asset metadata to get imageUrl
+        const assetResponse = await fetch(`/api/assets/${attachment.assetId}?projectId=${projectId}`);
+        if (!assetResponse.ok) {
+          console.warn(`Failed to fetch asset ${attachment.assetId}`);
+          continue;
+        }
+
+        const asset = await assetResponse.json();
+
+        // Fetch the actual image
+        const imageResponse = await fetch(asset.imageUrl);
+        if (!imageResponse.ok) {
+          console.warn(`Failed to fetch image for asset ${attachment.assetId}`);
+          continue;
+        }
+
+        const blob = await imageResponse.blob();
+        const objectUrl = URL.createObjectURL(blob);
+
+        // Convert blob to base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const base64 = reader.result as string;
+            resolve(base64.split(',')[1]);
+          };
+          reader.readAsDataURL(blob);
+        });
+
+        const imageBytes = await base64Promise;
+
+        refs.push({
+          imageBytes,
+          mimeType: blob.type || 'image/png',
+          objectUrl,
+          blob,
+        });
+
+        console.log(`Loaded asset ${asset.name} as reference (role: ${attachment.role})`);
+      } catch (err) {
+        console.error(`Error loading asset ${attachment.assetId}:`, err);
+      }
+    }
+
+    return refs;
+  };
 
   // Note: Project data persistence removed from localStorage due to quota limits.
   // Videos and evaluations are now stored server-side via API routes.
@@ -447,9 +512,17 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       // Get previous scene's last frame for shot continuity or use selected reference
       const sceneIndex = scenes.findIndex((s) => s.id === sceneId);
       let startFrameDataUrl: string | undefined;
-      let selectedRefs: string[] | undefined;
+      let selectedRefs: GeneratedImage[] | undefined;
 
-      // Determine which reference to use based on referenceMode
+      // Priority 1: Load attached assets (new system)
+      let assetRefs: GeneratedImage[] = [];
+      if (scene.attachedAssets && scene.attachedAssets.length > 0) {
+        console.log(`Loading ${scene.attachedAssets.length} attached assets for scene "${scene.title}"`);
+        assetRefs = await loadAttachedAssetsAsRefs(scene.attachedAssets, project.id);
+        console.log(`Loaded ${assetRefs.length} asset references`);
+      }
+
+      // Priority 2: Use referenceMode if specified
       if (scene.referenceMode !== undefined) {
         if (scene.referenceMode === 'previous') {
           // Use previous scene's last frame
@@ -462,33 +535,44 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
               console.log('Previous scene has no last frame stored');
             }
           }
-          // Don't send character refs when using previous shot
+          // Don't send refs when using previous shot
           selectedRefs = undefined;
         } else {
           // Use specific reference image (1-based index)
           const refIndex = scene.referenceMode - 1;
-          if (refIndex >= 0 && refIndex < characterRefs.length) {
-            selectedRefs = [characterRefs[refIndex]];
-            console.log(`Using reference image ${scene.referenceMode} for scene "${scene.title}"`);
+
+          // Prefer asset refs, fall back to legacy characterRefs
+          const availableRefs = assetRefs.length > 0 ? assetRefs : characterRefs;
+
+          if (refIndex >= 0 && refIndex < availableRefs.length) {
+            selectedRefs = [availableRefs[refIndex]];
+            console.log(`Using reference ${scene.referenceMode} from ${assetRefs.length > 0 ? 'attached assets' : 'character refs'}`);
           } else {
-            console.log(`Invalid reference mode ${scene.referenceMode}, using all character references`);
-            selectedRefs = characterRefs.length > 0 ? characterRefs : undefined;
+            console.log(`Invalid reference mode ${scene.referenceMode}, using all available references`);
+            selectedRefs = availableRefs.length > 0 ? availableRefs : undefined;
           }
         }
       } else {
-        // Backward compatibility: use existing logic
+        // Priority 3: Backward compatibility
         if (sceneIndex > 0) {
           const previousScene = scenes[sceneIndex - 1];
           if (previousScene.lastFrameDataUrl) {
             startFrameDataUrl = previousScene.lastFrameDataUrl;
             console.log(`Using last frame from previous scene "${previousScene.title}" for shot continuity`);
           } else {
-            console.log('Previous scene has no last frame stored, using character references');
+            console.log('Previous scene has no last frame stored');
           }
         } else {
-          console.log('First scene - using character references as start frame');
+          console.log('First scene');
         }
-        selectedRefs = characterRefs.length > 0 ? characterRefs : undefined;
+
+        // Prefer asset refs, fall back to legacy characterRefs
+        const availableRefs = assetRefs.length > 0 ? assetRefs : characterRefs;
+        selectedRefs = availableRefs.length > 0 ? availableRefs : undefined;
+
+        if (selectedRefs) {
+          console.log(`Using ${assetRefs.length > 0 ? 'attached assets' : 'character refs'} (${selectedRefs.length} refs)`);
+        }
       }
 
       // Generate video with optional start frame for continuity
@@ -668,6 +752,46 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     localStorage.setItem('openai_api_key', key);
   };
 
+  const handleSaveAssetAttachments = async (attachments: SceneAssetAttachment[]) => {
+    if (!selectedScene) return;
+
+    try {
+      // Save attachments via API
+      const response = await fetch(`/api/scenes/${selectedScene.id}/assets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ attachments }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save asset attachments');
+      }
+
+      // Update local project state
+      if (project) {
+        const updatedProject = {
+          ...project,
+          scenes: project.scenes.map((scene) =>
+            scene.id === selectedScene.id
+              ? { ...scene, attachedAssets: attachments }
+              : scene
+          ),
+        };
+        setProject(updatedProject);
+
+        // Also update selectedScene to reflect changes immediately
+        setSelectedScene({ ...selectedScene, attachedAssets: attachments });
+      }
+
+      console.log('Asset attachments saved successfully');
+    } catch (err) {
+      console.error('Failed to save asset attachments:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save asset attachments');
+    }
+  };
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Top Bar - Fixed Header */}
@@ -689,15 +813,18 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
               {project && (
                 <>
                   <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">{project.type}</span>
-                  {characterRefs.length > 0 && (
-                    <button
-                      onClick={() => setShowRefsModal(true)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 hover:bg-green-100 rounded-md text-xs font-medium transition-colors"
-                    >
-                      <ImageIcon className="w-3.5 h-3.5" />
-                      <span>{characterRefs.length} refs</span>
-                    </button>
-                  )}
+                  <button
+                    onClick={() => router.push(`/projects/${projectId}/assets`)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md text-xs font-medium transition-colors"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Asset Library</span>
+                    {characterRefs.length > 0 && (
+                      <span className="ml-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs">
+                        {characterRefs.length}
+                      </span>
+                    )}
+                  </button>
                 </>
               )}
             </div>
@@ -1039,6 +1166,29 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                   })()}
                 </button>
               </div>
+
+            {/* Attach Assets Button */}
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-700 mb-2">Scene Assets</label>
+              <button
+                onClick={() => setShowAssetPicker(true)}
+                className="w-full bg-white border-2 border-gray-200 hover:border-indigo-300 rounded-lg p-3 transition-all group text-left flex items-center gap-3"
+              >
+                <div className="w-10 h-10 flex-shrink-0 rounded bg-indigo-50 flex items-center justify-center">
+                  <Paperclip className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-medium text-gray-900">
+                      {selectedScene.attachedAssets?.length || 0} Assets
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 group-hover:text-indigo-600 transition-colors">
+                    Click to manage assets
+                  </div>
+                </div>
+              </button>
+            </div>
             </div>
 
             {/* Settings Toggle */}
@@ -1108,25 +1258,23 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                 {selectedScene.generated ? 'Regenerate Video' : 'Generate Video'}
               </button>
 
-              {selectedScene.videoUrl && (
-                <button
-                  onClick={() => handleEvaluateScene(selectedScene.id)}
-                  disabled={evaluatingSceneIds.has(selectedScene.id)}
-                  className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  {evaluatingSceneIds.has(selectedScene.id) ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Evaluating...
-                    </>
-                  ) : (
-                    <>
-                      <Search className="w-4 h-4" />
-                      Evaluate Video
-                    </>
-                  )}
-                </button>
-              )}
+              <button
+                onClick={() => handleEvaluateScene(selectedScene.id)}
+                disabled={!selectedScene.videoUrl || evaluatingSceneIds.has(selectedScene.id)}
+                className="w-full px-4 py-2.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {evaluatingSceneIds.has(selectedScene.id) ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Evaluating...
+                  </>
+                ) : (
+                  <>
+                    <Search className="w-4 h-4" />
+                    Evaluate Video
+                  </>
+                )}
+              </button>
             </div>
 
             {/* OpenAI API Key Input */}
@@ -1292,6 +1440,18 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
               return updatedProject;
             });
           }}
+        />
+      )}
+
+      {/* Asset Picker Modal */}
+      {selectedScene && (
+        <AssetPickerModal
+          isOpen={showAssetPicker}
+          onClose={() => setShowAssetPicker(false)}
+          projectId={projectId}
+          sceneId={selectedScene.id}
+          currentAttachments={selectedScene.attachedAssets || []}
+          onSaveAttachments={handleSaveAssetAttachments}
         />
       )}
 
