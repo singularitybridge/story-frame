@@ -8,7 +8,19 @@ import {
   VideoGenerationReferenceImage,
   VideoGenerationReferenceType,
 } from '@google/genai';
+import {GoogleGenerativeAI} from '@google/generative-ai';
 import {GenerateVideoParams, GenerationMode} from '../types';
+
+/**
+ * Text generation parameters for story creation
+ */
+export interface GenerateTextParams {
+  prompt: string;
+  temperature?: number;
+  maxTokens?: number;
+  model?: string; // Model to use (default: gemini-2.0-flash-exp)
+  responseSchema?: any; // JSON schema for structured output
+}
 
 // Fix: API key is now handled by process.env.API_KEY, so it's removed from parameters.
 export const generateVideo = async (
@@ -170,5 +182,54 @@ export const generateVideo = async (
   } else {
     console.error('Operation failed:', operation);
     throw new Error('No videos generated.');
+  }
+};
+
+/**
+ * Generate text using Gemini 2.0 Flash Exp
+ * Used for story generation with JSON output
+ */
+export const generateText = async (
+  params: GenerateTextParams,
+): Promise<string> => {
+  const modelName = params.model ?? 'gemini-2.0-flash-exp';
+  console.log(`Starting text generation with ${modelName}`);
+
+  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('NEXT_PUBLIC_GEMINI_API_KEY not found in environment');
+  }
+
+  // Use @google/generative-ai SDK for text generation
+  const genAI = new GoogleGenerativeAI(apiKey);
+
+  const generationConfig: any = {
+    temperature: params.temperature ?? 0.7,
+    maxOutputTokens: params.maxTokens ?? 2048,
+  };
+
+  // Add structured JSON output if schema provided
+  if (params.responseSchema) {
+    generationConfig.responseMimeType = 'application/json';
+    generationConfig.responseSchema = params.responseSchema;
+    console.log('Using structured JSON output with response schema');
+  }
+
+  const model = genAI.getGenerativeModel({
+    model: modelName,
+    generationConfig,
+  });
+
+  console.log('Submitting text generation request...');
+  const result = await model.generateContent(params.prompt);
+  const response = result.response;
+  const text = response.text();
+
+  if (text) {
+    console.log('Text generation complete');
+    return text;
+  } else {
+    console.error('Text generation failed:', response);
+    throw new Error('No text generated');
   }
 };
