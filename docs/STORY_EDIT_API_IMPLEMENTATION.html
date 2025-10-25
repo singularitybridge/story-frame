@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Story Edit API Implementation - Echo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            background: #f9fafb;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 2.5rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #374151;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p, li {
+            margin-bottom: 0.75rem;
+            color: #4b5563;
+        }
+
+        ul, ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        code {
+            background: #f3f4f6;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 0.9em;
+            color: #dc2626;
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        pre code {
+            background: none;
+            color: inherit;
+            padding: 0;
+        }
+
+        .success {
+            background: #dcfce7;
+            border-left: 4px solid #16a34a;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .error {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .checkpoint {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 6px;
+        }
+
+        .checkpoint h4 {
+            color: #16a34a;
+            margin-bottom: 0.5rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+            margin: 1.5rem 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0.5rem;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e5e7eb;
+        }
+
+        .timeline-item {
+            position: relative;
+            padding-bottom: 1.5rem;
+        }
+
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.6rem;
+            top: 0.3rem;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: 2px solid white;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-right: 0.5rem;
+        }
+
+        .tag-done {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .tag-inprogress {
+            background: #dbeafe;
+            color: #3b82f6;
+        }
+
+        .tag-pending {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Story Edit API Implementation</h1>
+        <p class="subtitle">Documentation of the dual-agent story editing system migration</p>
+
+        <div class="info">
+            <p><strong>Goal:</strong> Replace <code>/api/chat</code> with <code>/api/story/edit</code> for single-shot story editing using dual-agent system (Script Editing Agent + Review Agent)</p>
+        </div>
+
+        <h2>User Feedback & Requirements</h2>
+
+        <h3>1. Endpoint Naming</h3>
+        <p>User suggested renaming <code>/api/chat</code> to <code>/api/story/edit</code> to better reflect the single-shot story editing behavior:</p>
+        <ul>
+            <li><strong>Old:</strong> <code>/api/chat</code> - Implied conversational, multi-turn experience</li>
+            <li><strong>New:</strong> <code>/api/story/edit</code> - Clear single-shot editing endpoint</li>
+            <li><strong>Rationale:</strong> "Chat" endpoint might evolve for chat-like experience later, while story editing needs focused, formatted responses</li>
+        </ul>
+
+        <h3>2. Why Story Generation Works</h3>
+        <div class="success">
+            <p><strong>Answer:</strong> <code>/api/story/generate</code> uses <code>@google/genai</code> package directly, not <code>@ai-sdk/google</code></p>
+            <ul>
+                <li><code>@google/genai</code> - Official Google SDK, stable and well-tested</li>
+                <li><code>@ai-sdk/google</code> - Vercel AI SDK wrapper with tool calling issues</li>
+            </ul>
+        </div>
+
+        <h3>3. Development Strategy Guidelines</h3>
+        <ol>
+            <li>Always prefer to test via API/shell/curl calls</li>
+            <li>If encountering issues, isolate and test with small test scripts</li>
+            <li>Once working, apply changes to the codebase</li>
+            <li>Test again via API/shell/curl</li>
+            <li>Test via UI using Chrome DevTools MCP</li>
+            <li>Store ideas and useful info in README.md and CLAUDE.md files</li>
+            <li>Update CLAUDE.md to follow guidelines</li>
+            <li>LLM prompts must be saved in <code>.agents/agent-name/prompt.md</code> and loaded from there in code</li>
+        </ol>
+
+        <h2>Technical Issues Discovered</h2>
+
+        <div class="timeline">
+            <div class="timeline-item">
+                <h4>Issue #1: API Key Error</h4>
+                <p><strong>Error:</strong> <code>Google Generative AI API key is missing</code></p>
+                <p><strong>Root Cause:</strong> <code>@ai-sdk/google</code> requires <code>GOOGLE_GENERATIVE_AI_API_KEY</code> env var, not <code>NEXT_PUBLIC_GEMINI_API_KEY</code></p>
+                <p><strong>Fix:</strong> Added <code>GOOGLE_GENERATIVE_AI_API_KEY</code> to <code>.env.local</code></p>
+            </div>
+
+            <div class="timeline-item">
+                <h4>Issue #2: Tool Schema Error</h4>
+                <div class="error">
+                    <p><code>Unable to submit request because `edit_script` functionDeclaration parameters schema should be of type OBJECT</code></p>
+                </div>
+                <p><strong>Root Cause:</strong> Incompatibility between Zod schemas and <code>@ai-sdk/google</code> provider for Gemini function calling</p>
+                <p><strong>Attempts:</strong></p>
+                <ul>
+                    <li>✗ Tried using <code>tool()</code> helper - same error</li>
+                    <li>✗ Tried different Zod schema formats - same error</li>
+                    <li>✗ Checked Zod version (4.1.12 latest) - correct version</li>
+                </ul>
+                <p><strong>Conclusion:</strong> AI SDK tool calling with Gemini has unresolved compatibility issues</p>
+            </div>
+
+            <div class="timeline-item">
+                <h4>Solution: Use @google/genai Directly</h4>
+                <div class="success">
+                    <p>Created <code>/api/story/edit</code> endpoint using <code>@google/genai</code> directly, matching the proven approach from <code>/api/story/generate</code></p>
+                </div>
+            </div>
+        </div>
+
+        <h2>Implementation</h2>
+
+        <h3>New API Endpoint: /api/story/edit</h3>
+        <p><strong>File:</strong> <code>app/api/story/edit/route.ts</code></p>
+
+        <h4>Request Format:</h4>
+        <pre><code>{
+  "storyDraft": {
+    "projectMetadata": { /* project metadata */ },
+    "scenes": [ /* array of scenes */ ]
+  },
+  "editRequest": "rename the hero to Maria"
+}</code></pre>
+
+        <h4>Response Format:</h4>
+        <pre><code>{
+  "updatedStory": { /* modified StoryDraft */ },
+  "response": "Okay, I've renamed the hero to Maria...",
+  "changesSummary": {
+    "scenesAdded": 0,
+    "scenesRemoved": 0,
+    "scenesModified": 1,
+    "titleChanged": false
+  }
+}</code></pre>
+
+        <h3>UI Updates: CreateStoryModal.tsx</h3>
+        <p><strong>Changes:</strong></p>
+        <ul>
+            <li>Removed <code>useChat()</code> from <code>@ai-sdk/react</code></li>
+            <li>Replaced with simple async <code>editStory()</code> function using <code>fetch()</code></li>
+            <li>Simplified message state management</li>
+            <li>Updated form submission handlers</li>
+        </ul>
+
+        <h4>Before (useChat hook):</h4>
+        <pre><code>const {messages, sendMessage, status} = useChat({
+  api: '/api/chat',
+  onFinish: (message) => {
+    // Extract updated story from tool invocations
+    if (message.toolInvocations?.[0]?.result?.updatedStory) {
+      setStoryDraft(message.toolInvocations[0].result.updatedStory);
+    }
+  },
+});</code></pre>
+
+        <h4>After (simple fetch):</h4>
+        <pre><code>const editStory = async (editRequest: string) => {
+  const response = await fetch('/api/story/edit', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({storyDraft, editRequest}),
+  });
+
+  const result = await response.json();
+  setStoryDraft(result.updatedStory);
+  setMessages(prev => [...prev, {
+    role: 'assistant',
+    content: result.response
+  }]);
+};</code></pre>
+
+        <h2>Testing Results</h2>
+
+        <div class="checkpoint">
+            <h4>✓ Curl Test Success</h4>
+            <pre><code>$ curl -X POST http://localhost:3039/api/story/edit \\
+  -H 'content-type: application/json' \\
+  -d @test-edit-request.json
+
+Response time: ~4 seconds (dual-agent execution)
+Status: 200 OK
+
+{
+  "updatedStory": {
+    "projectMetadata": {
+      "character": "Maria, a quirky detective"  // ← Changed
+    }
+  },
+  "response": "Okay, I've renamed the hero to Maria...",
+  "changesSummary": {
+    "scenesModified": 1
+  }
+}</code></pre>
+        </div>
+
+        <div class="checkpoint">
+            <h4>✓ UI Test Success (Chrome DevTools)</h4>
+            <p><strong>Test Scenario:</strong> Generate story → Edit request "rename the hero to Maria"</p>
+
+            <p><strong>Original Story:</strong> "Brenda's Big Plant Problem" (4 scenes)</p>
+
+            <p><strong>Results:</strong></p>
+            <ul>
+                <li>✅ API Response: <code>{"scenesModified": 4, "titleChanged": true, "characterNameChanged": true}</code></li>
+                <li>✅ Story title updated: "Brenda's Big Plant Problem" → "Maria's Big Plant Problem"</li>
+                <li>✅ Character description updated: "Brenda" → "Maria"</li>
+                <li>✅ All scene titles updated (Scene 1: "Meet Maria, Plant Enthusiast", Scene 4: "Maria's New Hobby")</li>
+                <li>✅ All dialogue updated throughout screenplay</li>
+                <li>✅ AI response displayed correctly: "Okay, I've renamed your hero to Maria as requested! This change appears in the title, all the prompts, and the following scene titles..."</li>
+                <li>✅ Chat interface working (user message + assistant response)</li>
+                <li>✅ Send button properly disabled during processing</li>
+            </ul>
+
+            <p><strong>Browser Caching Note:</strong> Initial test required page reload to clear cached React bundle. After reload, new <code>editStory()</code> function executed correctly.</p>
+        </div>
+
+        <h2>Current Status</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>/api/story/edit</code> endpoint created</td>
+                    <td><span class="tag tag-done">✓ Done</span></td>
+                </tr>
+                <tr>
+                    <td>Curl testing successful</td>
+                    <td><span class="tag tag-done">✓ Done</span></td>
+                </tr>
+                <tr>
+                    <td>Update <code>CreateStoryModal.tsx</code></td>
+                    <td><span class="tag tag-done">✓ Done</span></td>
+                </tr>
+                <tr>
+                    <td>Test full flow with Chrome DevTools</td>
+                    <td><span class="tag tag-done">✓ Done</span></td>
+                </tr>
+                <tr>
+                    <td>Update documentation</td>
+                    <td><span class="tag tag-pending">⋯ Pending</span></td>
+                </tr>
+                <tr>
+                    <td>Create <code>.agents/</code> directory structure</td>
+                    <td><span class="tag tag-pending">⋯ Pending</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Implementation Complete ✓</h2>
+
+        <div class="success">
+            <p><strong>Migration Successful!</strong> The dual-agent story editing system is now fully operational.</p>
+            <ul>
+                <li>✓ Backend API endpoint working correctly</li>
+                <li>✓ UI successfully migrated from <code>useChat()</code> to <code>fetch()</code></li>
+                <li>✓ End-to-end testing passed via curl and Chrome DevTools</li>
+                <li>✓ Dual-agent system (Script Editing + Review) functioning as expected</li>
+            </ul>
+        </div>
+
+        <h2>Remaining Tasks</h2>
+        <ol>
+            <li>Create <code>.agents/script-editing-agent/prompt.md</code></li>
+            <li>Create <code>.agents/review-agent/prompt.md</code></li>
+            <li>Update agent services to load prompts from <code>.agents/</code> directory</li>
+            <li>Update CLAUDE.md with dual-agent system documentation</li>
+            <li>Optional: Remove old <code>/api/chat</code> endpoint (no longer needed)</li>
+        </ol>
+    </div>
+</body>
+</html>
