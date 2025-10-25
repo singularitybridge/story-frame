@@ -22,9 +22,7 @@ const CharacterRefsModal: React.FC<CharacterRefsModalProps> = ({
   currentAspectRatio,
   onClose,
 }) => {
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatioType>(
-    currentAspectRatio === AspectRatio.PORTRAIT ? '9:16' : '16:9'
-  );
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<AspectRatioType>('9:16');
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [characterDescription, setCharacterDescription] = useState('');
   const [numberOfImages, setNumberOfImages] = useState(3);

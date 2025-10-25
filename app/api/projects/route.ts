@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Low } from 'lowdb';
 import { JSONFile } from 'lowdb/node';
 import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
 import { Project } from '../../../types/project';
 
 // Database structure
@@ -131,6 +131,63 @@ export async function GET(request: NextRequest) {
     console.error('Error getting projects:', error);
     return NextResponse.json(
       { error: 'Failed to get projects' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Delete project and all associated files
+export async function DELETE(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const projectId = searchParams.get('projectId');
+
+    if (!projectId) {
+      return NextResponse.json(
+        { error: 'Project ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Read current data
+    await db.read();
+
+    // Check if project exists in runtime database
+    if (!db.data.projects[projectId]) {
+      return NextResponse.json(
+        { error: 'Project not found or cannot delete seed projects' },
+        { status: 404 }
+      );
+    }
+
+    // Delete project from database
+    delete db.data.projects[projectId];
+    await db.write();
+
+    // Delete associated files
+    const publicDir = join(process.cwd(), 'public');
+    const videosDir = join(publicDir, 'videos', projectId);
+    const evaluationsDir = join(publicDir, 'evaluations', projectId);
+    const refsDir = join(publicDir, 'generated-refs', projectId);
+
+    // Remove directories if they exist
+    [videosDir, evaluationsDir, refsDir].forEach(dir => {
+      if (existsSync(dir)) {
+        try {
+          rmSync(dir, { recursive: true, force: true });
+          console.log(`Deleted directory: ${dir}`);
+        } catch (err) {
+          console.error(`Failed to delete directory ${dir}:`, err);
+        }
+      }
+    });
+
+    console.log(`Project ${projectId} deleted successfully`);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting project:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete project' },
       { status: 500 }
     );
   }

@@ -5,8 +5,12 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'VEO Video Studio',
-  description: 'AI Video Generation Studio',
+  title: 'Echo - AI Video Creation',
+  description: 'AI-powered video creation platform for artists and creators to craft compelling visual stories',
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
 };
 
 export default function RootLayout({

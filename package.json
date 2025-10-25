@@ -1,13 +1,13 @@
 {
-  "name": "storyframe",
+  "name": "echo",
   "version": "1.0.0",
-  "description": "AI-powered video storytelling platform for creating short-form video content with automatic scene generation, character consistency, and intelligent evaluation",
-  "author": "StoryFrame Contributors",
+  "description": "AI-powered video creation platform for artists and creators to craft compelling visual stories with character consistency and intelligent evaluation",
+  "author": "Echo Contributors",
   "license": "Apache-2.0",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/storyframe"
+    "url": "https://github.com/singularitybridge/echo"
   },
   "keywords": [
     "ai",
@@ -25,15 +25,22 @@
     "preview": "next start -p 3039"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.23",
+    "@ai-sdk/react": "^2.0.78",
     "@google/genai": "^1.22.0",
+    "@google/generative-ai": "^0.24.1",
     "@types/fluent-ffmpeg": "^2.1.27",
+    "ai": "^5.0.78",
     "fluent-ffmpeg": "^2.1.3",
+    "form-data": "^4.0.4",
     "lowdb": "^7.0.1",
     "lucide-react": "^0.408.0",
     "next": "^15.5.6",
+    "node-fetch": "^2.7.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.4"
+    "react-router-dom": "^7.9.4",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",

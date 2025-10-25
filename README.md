@@ -1,8 +1,8 @@
-# StoryFrame
+# Echo
 
-> AI-powered video storytelling platform for creating compelling short-form video content
+> AI-powered video creation platform for artists and creators
 
-StoryFrame combines Google's Gemini AI with advanced video generation to help creators produce professional short-form videos with consistent characters, intelligent scene composition, and automated quality evaluation.
+Echo combines Google's Gemini AI with advanced video generation to help creators produce professional short-form videos with consistent characters, intelligent scene composition, and automated quality evaluation.
 
 ## Features
 
@@ -43,8 +43,8 @@ StoryFrame combines Google's Gemini AI with advanced video generation to help cr
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/singularitybridge/story-frame.git
-cd story-frame
+git clone https://github.com/singularitybridge/echo.git
+cd echo
 ```
 
 2. Install dependencies:
@@ -87,7 +87,7 @@ npm run dev
 
 ### Creating Your First Project
 
-1. Launch StoryFrame and click on an existing project or create a new one
+1. Launch Echo and click on an existing project or create a new one
 2. Define your scenes with descriptions, durations, and optional voiceovers
 3. Generate character references if you want consistent characters across scenes
 4. Click "Generate Video" on each scene to create the video content
@@ -97,7 +97,7 @@ npm run dev
 ### Project Structure
 
 ```
-storyframe/
+echo/
 ├── app/                      # Next.js app directory
 │   ├── api/                  # API routes for videos and evaluations
 │   ├── projects/             # Dynamic project pages
@@ -120,7 +120,7 @@ storyframe/
 
 ### Video Generation
 
-StoryFrame uses Google's Gemini API for video generation:
+Echo uses Google's Gemini API for video generation:
 
 - **Model**: Veo 2
 - **Max Duration**: 8 seconds per scene
@@ -172,4 +172,4 @@ For issues, questions, or feature requests, please open an issue on GitHub.
 
 ---
 
-Built with ❤️ by the StoryFrame community
+Built with ❤️ by the Echo community

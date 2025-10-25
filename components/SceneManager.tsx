@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Play, Loader2, Film, CheckCircle2, Settings, Settings2, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download, ImagePlus, HelpCircle, Paperclip } from 'lucide-react';
+import { Play, Loader2, Film, CheckCircle2, Settings, Settings2, MessageSquare, AlertCircle, Search, Copy, Check, ArrowLeft, X, Image as ImageIcon, Download, ImagePlus, HelpCircle, Paperclip, Radio, Trash2 } from 'lucide-react';
 import { generateVideo, GeneratedVideo } from '../services/videoService';
 import { GeneratedImage } from '../services/imageService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
@@ -41,6 +41,8 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [showAssetPicker, setShowAssetPicker] = useState<boolean>(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Playback controls
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState<boolean>(false);
@@ -752,6 +754,33 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
     localStorage.setItem('openai_api_key', key);
   };
 
+  const handleDeleteProject = async () => {
+    if (!project) return;
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/projects?projectId=${project.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to delete story');
+      }
+
+      console.log('Story deleted successfully');
+      // Navigate back to home
+      router.push('/');
+    } catch (err) {
+      console.error('Story deletion failed:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete story');
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const handleSaveAssetAttachments = async (attachments: SceneAssetAttachment[]) => {
     if (!selectedScene) return;
 
@@ -797,13 +826,13 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
       {/* Top Bar - Fixed Header */}
       <div className="flex items-center justify-between bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center gap-6">
-          {/* Back to Projects Button */}
+          {/* Back to Stories Button */}
           <button
             onClick={() => router.push('/')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span className="text-sm font-medium">Projects</span>
+            <span className="text-sm font-medium">Stories</span>
           </button>
 
           {/* Project Title and Info */}
@@ -831,14 +860,14 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {/* Project Settings Button */}
+          {/* Story Settings Button */}
           {project && (
             <button
               onClick={() => setShowProjectSettings(true)}
               className="flex items-center gap-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <Settings2 className="w-4 h-4" />
-              <span className="text-sm font-medium">Project Settings</span>
+              <span className="text-sm font-medium">Story Settings</span>
             </button>
           )}
 
@@ -859,6 +888,15 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                 <span>Export Video</span>
               </>
             )}
+          </button>
+
+          {/* Delete Story Button */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Delete Story"
+          >
+            <Trash2 className="w-5 h-5" />
           </button>
 
           {/* Help Button - Keyboard Shortcuts */}
@@ -1005,8 +1043,8 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
                       Your browser does not support the video tag.
                     </video>
                   ) : (
-                    <div className="flex flex-col items-center justify-center bg-white border border-gray-200 rounded-lg p-12">
-                      <Film className="w-16 h-16 text-gray-400 mb-4" />
+                    <div className="flex flex-col items-center justify-center p-12">
+                      <Radio className="w-16 h-16 text-indigo-400 mb-4" />
                       <p className="text-gray-700 text-lg font-medium">No video generated</p>
                       <p className="text-gray-500 text-sm mt-2">Use the controls on the right to generate</p>
                     </div>
@@ -1460,6 +1498,55 @@ const SceneManager: React.FC<SceneManagerProps> = ({ projectId }) => {
         isOpen={showKeyboardShortcuts}
         onClose={() => setShowKeyboardShortcuts(false)}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-red-100 rounded-lg">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    Delete Story
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Are you sure you want to delete "{project?.title}"? This will permanently delete all scenes, videos, and associated files. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-200">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteProject}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Delete Story</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Playback Bar */}
       {project && selectedScene && (

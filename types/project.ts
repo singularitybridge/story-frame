@@ -4,6 +4,7 @@
  */
 import { VideoEvaluation } from '../services/evaluationService';
 import { VeoModel, AspectRatio, Resolution } from '../types';
+import { GenerationMetadata } from './story-creation';
 
 export type ProjectType = 'movie' | 'short' | 'commercial';
 
@@ -14,6 +15,12 @@ export interface GenerationSettings {
   isLooping: boolean;
 }
 
+export interface SceneAssetAttachment {
+  assetId: string;
+  role: 'character' | 'background' | 'prop'; // Role of asset in the scene
+  order: number; // Display/reference order (0-based)
+}
+
 export interface Scene {
   id: string;
   title: string;
@@ -21,6 +28,9 @@ export interface Scene {
   prompt: string;
   cameraAngle: string;
   voiceover?: string;
+
+  // Asset attachments
+  attachedAssets?: SceneAssetAttachment[]; // Assets used in this scene
 
   // Rendering data
   generated: boolean;
@@ -40,7 +50,16 @@ export interface Project {
   description: string;
   type: ProjectType;
   character?: string;
+
+  // Project-level generation settings
+  aspectRatio: AspectRatio; // Applied to all scenes in project
+  defaultModel: VeoModel; // Default for new scenes
+  defaultResolution: Resolution; // Default for new scenes
+
   createdAt: number;
   updatedAt: number;
   scenes: Scene[];
+
+  // Generation metadata (optional, for AI-generated stories)
+  generationMetadata?: GenerationMetadata;
 }

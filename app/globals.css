@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+/* Screenplay formatting styles */
+.screenplay {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 600px;
+}
+
+.screenplay-scene-heading {
+  font-weight: bold;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.screenplay-action {
+  margin-bottom: 1rem;
+}
+
+.screenplay-character {
+  margin-left: 2.5rem;
+  margin-top: 1rem;
+  margin-bottom: 0.25rem;
+  font-weight: bold;
+}
+
+.screenplay-dialogue {
+  margin-left: 1.5rem;
+  margin-right: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.screenplay-transition {
+  text-align: right;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sticky-feedback {
+  position: sticky;
+  top: 1.5rem;
+}
